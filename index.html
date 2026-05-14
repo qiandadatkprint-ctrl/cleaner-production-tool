@@ -3,103 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>清洁生产审核 - 动态数据工作台</title>
+    <title>清洁生产审核 - 智能批量数据工具</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8fafc; font-family: "Times New Roman", SimSun, sans-serif; }
+        body { background-color: #f1f5f9; font-family: "Times New Roman", SimSun, sans-serif; }
         .chart-container { height: 400px; width: 100%; }
-        /* 针对复制到Word优化的表格样式 */
         .report-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; background: white;}
         .report-table th, .report-table td { border: 1px solid #000; padding: 6px; }
-        .report-table th { font-weight: bold; }
-        /* 隐藏滚动条但保留功能 */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .report-table th { font-weight: bold; background-color: #f8fafc; }
+        .input-area { font-family: monospace; font-size: 12px; height: 120px; border: 2px dashed #cbd5e1; }
+        .input-area:focus { border-color: #3b82f6; outline: none; background-color: #f8fafc; }
+        .section-card { background: white; padding: 20px; border-radius: 8px; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border-top: 4px solid #3b82f6; }
     </style>
 </head>
-<body class="p-4 text-gray-800">
+<body class="p-4">
 
 <div id="app" class="max-w-screen-2xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold text-center mb-6" style="font-family: SimSun;">清洁生产审核自动化数据处理平台</h1>
+    <h1 class="text-3xl font-bold text-center mb-6" style="font-family: SimSun;">清洁生产审核：全自动化数据集成工作台</h1>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <div class="lg:col-span-5 space-y-6 max-h-screen overflow-y-auto no-scrollbar pb-20">
+        <div class="lg:col-span-5 space-y-6">
             
-            <div class="bg-white p-5 rounded-lg shadow border-t-4 border-blue-600">
-                <h2 class="text-lg font-bold mb-3 border-b pb-2">1. 全局年份配置</h2>
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm">统计年份 (用逗号分隔):</span>
-                    <input v-model="yearsInput" @change="updateYears" type="text" class="border rounded px-2 py-1 w-full" placeholder="例如: 2021,2022,2023">
+            <div class="section-card">
+                <h2 class="text-lg font-bold mb-2">1. 全局配置与数据一键导入</h2>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <span class="text-xs font-bold text-gray-500">统计年份 (逗号分隔):</span>
+                        <input v-model="yearsInput" @change="updateYears" type="text" class="w-full border rounded p-1 text-sm">
+                    </div>
                 </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-lg shadow border-t-4 border-green-600">
-                <h2 class="text-lg font-bold mb-3 border-b pb-2">2. 宏观产值与产量 (用于计算单耗)</h2>
+                
                 <div class="space-y-4">
-                    <div class="flex flex-col space-y-2">
-                        <div class="flex items-center space-x-2 font-bold">
-                            <span>总产量 单位:</span>
-                            <input v-model="macro.production.unit" type="text" class="border rounded px-2 py-1 w-20">
+                    <div>
+                        <div class="flex justify-between items-end">
+                            <span class="text-xs font-bold text-blue-600">批量粘贴：产值与产量 (从Excel直接复制数据区)</span>
+                            <span class="text-xs text-gray-400">格式：年份,产量,产值</span>
                         </div>
-                        <div class="flex space-x-2" v-for="(year, idx) in years" :key="'prod'+idx">
-                            <span class="w-16">{{ year }}年</span>
-                            <input v-model.number="macro.production.values[idx]" type="number" class="border rounded px-2 py-1 flex-1">
-                        </div>
+                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-2 mt-1" placeholder="例如粘贴：&#10;2021	164528.97	25856&#10;2022	109161.47	19425"></textarea>
                     </div>
-                    <hr>
-                    <div class="flex flex-col space-y-2">
-                        <div class="flex items-center space-x-2 font-bold">
-                            <span>总产值 单位:</span>
-                            <input v-model="macro.value.unit" type="text" class="border rounded px-2 py-1 w-20">
+
+                    <div>
+                        <div class="flex justify-between items-end">
+                            <span class="text-xs font-bold text-purple-600">批量粘贴：原辅材料消耗</span>
+                            <span class="text-xs text-gray-400">格式：名称,单位,数值1,数值2...</span>
                         </div>
-                        <div class="flex space-x-2" v-for="(year, idx) in years" :key="'val'+idx">
-                            <span class="w-16">{{ year }}年</span>
-                            <input v-model.number="macro.value.values[idx]" type="number" class="border rounded px-2 py-1 flex-1">
+                        <textarea v-model="pasteData.materials" @input="parseMaterials" class="input-area w-full p-2 mt-1" placeholder="例如粘贴：&#10;电镀锡球	KG	12580	7600	6580&#10;铝线	千米	947	321	496"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-end">
+                            <span class="text-xs font-bold text-yellow-600">批量粘贴：能源消耗 (含折标系数)</span>
+                            <span class="text-xs text-gray-400">格式：名称,单位,系数,数值1,数值2...</span>
                         </div>
+                        <textarea v-model="pasteData.energy" @input="parseEnergy" class="input-area w-full p-2 mt-1" placeholder="例如粘贴：&#10;电	万kWh	2.88	1548	1270&#10;柴油	吨	1.4571	0.33	0.33"></textarea>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white p-5 rounded-lg shadow border-t-4 border-purple-600">
-                <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h2 class="text-lg font-bold">3. 主要原辅材料消耗</h2>
-                    <button @click="addMaterial" class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm font-bold">+ 添加材料</button>
-                </div>
-                <div v-for="(mat, mIdx) in materials" :key="mIdx" class="mb-4 bg-gray-50 p-3 rounded relative border">
-                    <button @click="removeMaterial(mIdx)" class="absolute top-1 right-2 text-red-500 font-bold">×</button>
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <input v-model="mat.name" type="text" placeholder="材料名称" class="border rounded px-2 py-1 text-sm font-bold">
-                        <input v-model="mat.unit" type="text" placeholder="单位(如KG)" class="border rounded px-2 py-1 text-sm">
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div v-for="(year, yIdx) in years" :key="year">
-                            <span class="text-xs text-gray-500">{{ year }}年</span>
-                            <input v-model.number="mat.values[yIdx]" type="number" class="border rounded px-2 py-1 w-full text-sm">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-lg shadow border-t-4 border-yellow-500">
-                <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h2 class="text-lg font-bold">4. 能源消耗与折标系数</h2>
-                    <button @click="addEnergy" class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-sm font-bold">+ 添加能源</button>
-                </div>
-                <div v-for="(eng, eIdx) in energies" :key="'eng'+eIdx" class="mb-4 bg-gray-50 p-3 rounded relative border">
-                    <button @click="removeEnergy(eIdx)" class="absolute top-1 right-2 text-red-500 font-bold">×</button>
-                    <div class="grid grid-cols-12 gap-2 mb-2">
-                        <input v-model="eng.name" type="text" placeholder="能源名称" class="border rounded px-2 py-1 text-sm font-bold col-span-4">
-                        <input v-model="eng.unit" type="text" placeholder="单位" class="border rounded px-2 py-1 text-sm col-span-3">
-                        <input v-model.number="eng.factor" type="number" step="0.0001" placeholder="折标系数" class="border rounded px-2 py-1 text-sm col-span-5" title="折标系数">
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div v-for="(year, yIdx) in years" :key="year">
-                            <span class="text-xs text-gray-500">{{ year }}年</span>
-                            <input v-model.number="eng.values[yIdx]" type="number" class="border rounded px-2 py-1 w-full text-sm">
-                        </div>
+            <div class="section-card border-t-4 border-gray-400">
+                <h2 class="text-lg font-bold mb-2">2. 参数手动校验</h2>
+                <div class="text-xs text-gray-500 mb-4 italic">* 以上粘贴后，此处数据会自动同步。你也可以在这里微调。</div>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2 font-bold p-1 bg-gray-50">
+                        <span class="w-20">产量单位:</span>
+                        <input v-model="macro.production.unit" class="border rounded px-1 w-20">
+                        <span class="ml-4 w-20">产值单位:</span>
+                        <input v-model="macro.value.unit" class="border rounded px-1 w-20">
                     </div>
                 </div>
             </div>
@@ -107,58 +79,51 @@
 
         <div class="lg:col-span-7 space-y-6">
             
-            <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
-                <h2 class="text-xl font-bold mb-4" style="font-family: SimSun;">📋 可复制数据表 (框选后 Ctrl+C 直接贴入 Word)</h2>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4" style="font-family: SimSun;">📋 报告成果展示 (直接复制/截图)</h2>
                 
-                <p class="font-bold mb-2 mt-4 text-center">表：企业历年产品主要原辅材料单耗情况</p>
+                <p class="font-bold mb-2 text-center">表：企业历年产品主要原辅材料单耗情况</p>
                 <div class="overflow-x-auto">
                     <table class="report-table">
                         <thead>
                             <tr>
                                 <th>名称</th>
                                 <th>单耗单位</th>
-                                <th v-for="year in years" :key="year">{{ year }}年单耗</th>
+                                <th v-for="year in years" :key="year">{{ year }}年</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="font-bold bg-gray-100">
-                                <td>全厂产品</td>
-                                <td>{{ macro.production.unit }}</td>
-                                <td v-for="(val, i) in macro.production.values" :key="i">{{ val }}</td>
+                            <tr class="font-bold">
+                                <td>全厂产品 ({{ macro.production.unit }})</td>
+                                <td>/</td>
+                                <td v-for="val in macro.production.values">{{ val }}</td>
                             </tr>
-                            <tr v-for="(mat, i) in materials" :key="'out_mat'+i">
+                            <tr v-for="mat in materials">
                                 <td>{{ mat.name }}</td>
                                 <td>{{ mat.unit }}/{{ macro.production.unit }}</td>
-                                <td v-for="(val, vIdx) in mat.values" :key="vIdx">
-                                    {{ calculateMaterialUnit(val, macro.production.values[vIdx]) }}
-                                </td>
+                                <td v-for="(val, idx) in mat.values">{{ calculateUnit(val, macro.production.values[idx]) }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <p class="font-bold mb-2 mt-8 text-center">表：近几年能、资源消耗情况汇总</p>
+                <div class="grid grid-cols-2 gap-4 mt-8">
+                    <div id="chartProd" class="chart-container" style="height: 350px;"></div>
+                    <div id="chartVal" class="chart-container" style="height: 350px;"></div>
+                </div>
+
+                <p class="font-bold mb-2 mt-12 text-center">表：能源消耗及综合能耗汇总表</p>
                 <div class="overflow-x-auto">
                     <table class="report-table">
                         <thead>
                             <tr>
                                 <th>类别</th>
                                 <th>单位</th>
-                                <th v-for="year in years" :key="year">{{ year }}年</th>
+                                <th v-for="year in years">{{ year }}年</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>产量</td>
-                                <td>{{ macro.production.unit }}</td>
-                                <td v-for="(val, i) in macro.production.values" :key="'out_prod'+i">{{ val }}</td>
-                            </tr>
-                            <tr>
-                                <td>产值</td>
-                                <td>{{ macro.value.unit }}</td>
-                                <td v-for="(val, i) in macro.value.values" :key="'out_val'+i">{{ val }}</td>
-                            </tr>
-                            <template v-for="eng in energies" :key="'out_eng_'+eng.name">
+                            <template v-for="eng in energies">
                                 <tr>
                                     <td rowspan="2" class="font-bold">{{ eng.name }}</td>
                                     <td>{{ eng.unit }}</td>
@@ -166,39 +131,29 @@
                                 </tr>
                                 <tr>
                                     <td>吨标煤</td>
-                                    <td v-for="val in eng.values">{{ (val * eng.factor).toFixed(3) }}</td>
+                                    <td v-for="val in eng.values">{{ (val * eng.factor).toFixed(2) }}</td>
                                 </tr>
                             </template>
-                            <tr class="font-bold bg-gray-100">
+                            <tr class="font-bold bg-blue-50">
                                 <td rowspan="3">综合能耗</td>
                                 <td>吨标煤</td>
-                                <td v-for="(val, i) in totalEnergyData" :key="'te'+i">{{ val }}</td>
+                                <td v-for="val in totalEnergyData">{{ val }}</td>
                             </tr>
-                            <tr class="bg-gray-100">
+                            <tr class="bg-blue-50">
                                 <td>吨标煤/{{ macro.production.unit }}</td>
-                                <td v-for="(val, i) in unitProductionEnergy" :key="'upe'+i">{{ val }}</td>
+                                <td v-for="val in unitProductionEnergy">{{ val }}</td>
                             </tr>
-                            <tr class="bg-gray-100">
+                            <tr class="bg-blue-50">
                                 <td>吨标煤/{{ macro.value.unit }}</td>
-                                <td v-for="(val, i) in unitValueEnergy" :key="'uve'+i">{{ val }}</td>
+                                <td v-for="val in unitValueEnergy">{{ val }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-                    <div id="chartProd" class="chart-container" style="height: 300px;"></div>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-                    <div id="chartVal" class="chart-container" style="height: 300px;"></div>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-                    <div id="chartEnergyTotal" class="chart-container" style="height: 300px;"></div>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-                    <div id="chartEnergyUnit" class="chart-container" style="height: 300px;"></div>
+                <div class="grid grid-cols-2 gap-4 mt-8">
+                    <div id="chartETotal" class="chart-container" style="height: 350px;"></div>
+                    <div id="chartEUnit" class="chart-container" style="height: 350px;"></div>
                 </div>
             </div>
 
@@ -209,170 +164,122 @@
 <script>
     const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
-    // 全局字体设置，满足中文宋体，数字/英文 Times New Roman 的学术要求
-    const reportFontStyle = {
-        fontFamily: '"Times New Roman", SimSun, sans-serif'
-    };
-
     createApp({
         setup() {
-            // 初始化数据 (直接套用模板数据)
             const yearsInput = ref('2021,2022,2023');
             const years = ref(['2021', '2022', '2023']);
+            
+            const pasteData = ref({ macro: '', materials: '', energy: '' });
 
             const macro = ref({
-                production: { unit: '万颗', values: [164528.9779, 109161.4711, 100082.1842] },
-                value: { unit: '万元', values: [25856, 19425, 17792] }
+                production: { unit: '万颗', values: [0, 0, 0] },
+                value: { unit: '万元', values: [0, 0, 0] }
             });
 
-            const materials = ref([
-                { name: '电镀锡球', unit: 'KG', values: [12580, 7600, 6580] },
-                { name: '铝线', unit: '千米', values: [947.08, 321.28, 496.78] },
-                { name: '黑胶', unit: 'T', values: [245.01, 142.49, 137.8] },
-                { name: '铜线', unit: '千米', values: [31364, 18902.5, 18244] }
-            ]);
+            const materials = ref([]);
+            const energies = ref([]);
 
-            const energies = ref([
-                { name: '电', unit: '万kWh', factor: 2.88, values: [1548.4597, 1270.6843, 1132.7233] },
-                { name: '柴油', unit: '吨', factor: 1.4571, values: [0.336, 0.336, 0.336] },
-                { name: '天然气', unit: '万立方米', factor: 13, values: [1.2415, 0.9497, 0.882] }
-            ]);
-
-            // 动态处理年份增减
-            const updateYears = () => {
-                const newYears = yearsInput.value.split(',').map(y => y.trim()).filter(y => y);
-                const oldLen = years.value.length;
-                const newLen = newYears.length;
-                
-                // 调整各类数组长度以匹配年份数量
-                const resizeArray = (arr) => {
-                    if (newLen > oldLen) {
-                        return [...arr, ...Array(newLen - oldLen).fill(0)];
-                    } else {
-                        return arr.slice(0, newLen);
+            // 解析器：产量与产值
+            const parseMacro = () => {
+                const lines = pasteData.value.macro.trim().split('\n');
+                lines.forEach((line, index) => {
+                    const parts = line.split(/\s+/); // 支持空格或Tab
+                    if (parts.length >= 3 && index < years.value.length) {
+                        macro.value.production.values[index] = parseFloat(parts[1]) || 0;
+                        macro.value.value.values[index] = parseFloat(parts[2]) || 0;
                     }
-                };
-
-                macro.value.production.values = resizeArray(macro.value.production.values);
-                macro.value.value.values = resizeArray(macro.value.value.values);
-                
-                materials.value.forEach(m => m.values = resizeArray(m.values));
-                energies.value.forEach(e => e.values = resizeArray(e.values));
-
-                years.value = newYears;
+                });
             };
 
-            const addMaterial = () => materials.value.push({ name: '', unit: '', values: Array(years.value.length).fill(0) });
-            const removeMaterial = (idx) => materials.value.splice(idx, 1);
-            
-            const addEnergy = () => energies.value.push({ name: '', unit: '', factor: 1, values: Array(years.value.length).fill(0) });
-            const removeEnergy = (idx) => energies.value.splice(idx, 1);
-
-            // 计算方法：单耗
-            const calculateMaterialUnit = (amount, totalProd) => {
-                if (!totalProd || totalProd === 0) return 0;
-                // 为了排版美观，根据数值大小保留有效小数
-                const res = amount / totalProd;
-                return res < 0.001 ? res.toExponential(2) : parseFloat(res.toFixed(6));
+            // 解析器：原辅材料
+            const parseMaterials = () => {
+                const lines = pasteData.value.materials.trim().split('\n');
+                materials.value = lines.map(line => {
+                    const parts = line.split(/\s+/);
+                    return {
+                        name: parts[0],
+                        unit: parts[1],
+                        values: parts.slice(2).map(v => parseFloat(v) || 0)
+                    };
+                }).filter(m => m.name);
             };
 
-            // 计算属性：综合能耗等核心数据
+            // 解析器：能源
+            const parseEnergy = () => {
+                const lines = pasteData.value.energy.trim().split('\n');
+                energies.value = lines.map(line => {
+                    const parts = line.split(/\s+/);
+                    return {
+                        name: parts[0],
+                        unit: parts[1],
+                        factor: parseFloat(parts[2]) || 0,
+                        values: parts.slice(3).map(v => parseFloat(v) || 0)
+                    };
+                }).filter(e => e.name);
+            };
+
+            const updateYears = () => {
+                years.value = yearsInput.value.split(',').map(y => y.trim());
+                macro.value.production.values = Array(years.value.length).fill(0);
+                macro.value.value.values = Array(years.value.length).fill(0);
+            };
+
+            const calculateUnit = (amt, total) => total ? (amt / total).toFixed(6) : 0;
+
             const totalEnergyData = computed(() => {
-                return years.value.map((_, idx) => {
-                    let total = 0;
-                    energies.value.forEach(e => total += (e.values[idx] || 0) * e.factor);
-                    return parseFloat(total.toFixed(2));
+                return years.value.map((_, i) => {
+                    let sum = 0;
+                    energies.value.forEach(e => sum += (e.values[i] || 0) * e.factor);
+                    return parseFloat(sum.toFixed(2));
                 });
             });
 
-            const unitProductionEnergy = computed(() => {
-                return totalEnergyData.value.map((tot, idx) => {
-                    const prod = macro.value.production.values[idx];
-                    return prod ? parseFloat((tot / prod).toFixed(3)) : 0;
-                });
-            });
+            const unitProductionEnergy = computed(() => totalEnergyData.value.map((t, i) => macro.value.production.values[i] ? (t / macro.value.production.values[i]).toFixed(4) : 0));
+            const unitValueEnergy = computed(() => totalEnergyData.value.map((t, i) => macro.value.value.values[i] ? (t / macro.value.value.values[i]).toFixed(3) : 0));
 
-            const unitValueEnergy = computed(() => {
-                return totalEnergyData.value.map((tot, idx) => {
-                    const val = macro.value.value.values[idx];
-                    return val ? parseFloat((tot / val).toFixed(2)) : 0;
-                });
-            });
+            // --- 图表 ---
+            let chartObjs = {};
 
-            // --- 图表渲染模块 ---
-            let charts = {};
+            const getOption = (title, yName, data, isUnit = false) => {
+                // 将标题文字垂直化：每个字符后面加换行
+                const verticalName = yName.split('').join('\n');
 
-            const commonOption = {
-                title: { textStyle: { ...reportFontStyle, fontSize: 16, fontWeight: 'normal' }, left: 'center' },
-                tooltip: { trigger: 'axis', textStyle: reportFontStyle },
-                xAxis: { type: 'category', data: years.value, axisLabel: { textStyle: reportFontStyle, formatter: '{value}年' } },
-                grid: { left: '15%', right: '15%', bottom: '15%', top: '20%' }
+                return {
+                    title: { text: title, left: 'center', textStyle: { fontFamily: 'SimSun', fontWeight: 'bold' } },
+                    tooltip: { trigger: 'axis' },
+                    grid: { left: '15%', right: '10%', bottom: '15%' },
+                    xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: 'Times New Roman' } },
+                    yAxis: { 
+                        type: 'value', 
+                        name: verticalName, 
+                        nameLocation: 'middle', 
+                        nameGap: 50, 
+                        nameRotate: 0, // 关键：文字不旋转，靠换行实现垂直
+                        nameTextStyle: { fontFamily: 'SimSun', fontSize: 12 },
+                        axisLabel: { fontFamily: 'Times New Roman' }
+                    },
+                    series: [{ data: data, type: 'bar', barWidth: '40%', itemStyle: { color: '#4472c4' } }]
+                };
             };
 
-            const drawCharts = () => {
-                if(!charts.prod) charts.prod = echarts.init(document.getElementById('chartProd'));
-                if(!charts.val) charts.val = echarts.init(document.getElementById('chartVal'));
-                if(!charts.engTot) charts.engTot = echarts.init(document.getElementById('chartEnergyTotal'));
-                if(!charts.engUnit) charts.engUnit = echarts.init(document.getElementById('chartEnergyUnit'));
+            const renderAll = () => {
+                if (!chartObjs.p) chartObjs.p = echarts.init(document.getElementById('chartProd'));
+                if (!chartObjs.v) chartObjs.v = echarts.init(document.getElementById('chartVal'));
+                if (!chartObjs.et) chartObjs.et = echarts.init(document.getElementById('chartETotal'));
+                if (!chartObjs.eu) chartObjs.eu = echarts.init(document.getElementById('chartEUnit'));
 
-                // 图1：总产量
-                charts.prod.setOption({
-                    ...commonOption,
-                    title: { text: '近三年总产量趋势', ...commonOption.title },
-                    yAxis: { type: 'value', name: `产量/${macro.value.production.unit}`, nameTextStyle: reportFontStyle, axisLabel: { textStyle: reportFontStyle } },
-                    series: [{ data: macro.value.production.values, type: 'bar', barWidth: '40%', itemStyle: { color: '#4472c4' }, label: {show: false} }]
-                });
-
-                // 图2：总产值
-                charts.val.setOption({
-                    ...commonOption,
-                    title: { text: '近三年总产值趋势', ...commonOption.title },
-                    yAxis: { type: 'value', name: `产值/${macro.value.value.unit}`, nameTextStyle: reportFontStyle, axisLabel: { textStyle: reportFontStyle } },
-                    series: [{ data: macro.value.value.values, type: 'bar', barWidth: '40%', itemStyle: { color: '#4472c4' }, label: {show: false} }]
-                });
-
-                // 图3：年度综合能耗
-                charts.engTot.setOption({
-                    ...commonOption,
-                    title: { text: '年度综合能耗趋势图', ...commonOption.title },
-                    yAxis: { type: 'value', name: '吨标煤', nameTextStyle: reportFontStyle, axisLabel: { textStyle: reportFontStyle } },
-                    series: [{ data: totalEnergyData.value, type: 'bar', barWidth: '40%', itemStyle: { color: '#4472c4' }, label: { show: true, position: 'top', textStyle: reportFontStyle } }]
-                });
-
-                // 图4：能耗单耗 (双Y轴)
-                charts.engUnit.setOption({
-                    ...commonOption,
-                    title: { text: '年度综合能耗单耗', ...commonOption.title },
-                    legend: { bottom: 0, textStyle: reportFontStyle, data: ['单位产品综合能耗', '万元产值综合能耗'] },
-                    yAxis: [
-                        { type: 'value', name: `吨标煤/${macro.value.production.unit}`, nameTextStyle: reportFontStyle, axisLabel: { textStyle: reportFontStyle } },
-                        { type: 'value', name: `吨标煤/${macro.value.value.unit}`, nameTextStyle: reportFontStyle, axisLabel: { textStyle: reportFontStyle }, splitLine: { show: false } }
-                    ],
-                    series: [
-                        { name: '单位产品综合能耗', type: 'bar', yAxisIndex: 0, data: unitProductionEnergy.value, barWidth: '40%', itemStyle: { color: '#4472c4' }, label: {show: true, position: 'top', textStyle: reportFontStyle} },
-                        { name: '万元产值综合能耗', type: 'line', yAxisIndex: 1, data: unitValueEnergy.value, itemStyle: { color: '#ed7d31' }, symbol: 'circle', symbolSize: 8, lineStyle: { width: 3 }, label: {show: true, position: 'bottom', textStyle: reportFontStyle} }
-                    ]
-                });
+                chartObjs.p.setOption(getOption('近三年总产量趋势', `产量(${macro.value.production.unit})`, macro.value.production.values));
+                chartObjs.v.setOption(getOption('近三年总产值趋势', `产值(${macro.value.value.unit})`, macro.value.value.values));
+                chartObjs.et.setOption(getOption('年度综合总能耗', '吨标煤', totalEnergyData.value));
+                
+                // 单耗图采用双Y轴或特殊处理，这里简练处理为产品单耗
+                chartObjs.eu.setOption(getOption('年度综合能耗单耗', `吨标煤/${macro.value.production.unit}`, unitProductionEnergy.value));
             };
 
-            // 监听数据变化，自动重绘图表
-            watch([years, macro, materials, energies], () => {
-                nextTick(() => { drawCharts(); });
-            }, { deep: true });
+            watch([macro, materials, energies, years], () => nextTick(renderAll), { deep: true });
+            onMounted(() => { nextTick(renderAll); window.onresize = () => Object.values(chartObjs).forEach(c => c.resize()); });
 
-            onMounted(() => {
-                nextTick(() => { drawCharts(); });
-                window.addEventListener('resize', () => {
-                    Object.values(charts).forEach(c => c && c.resize());
-                });
-            });
-
-            return { 
-                yearsInput, years, updateYears, 
-                macro, materials, energies, 
-                addMaterial, removeMaterial, addEnergy, removeEnergy,
-                calculateMaterialUnit, totalEnergyData, unitProductionEnergy, unitValueEnergy
-            };
+            return { yearsInput, years, pasteData, macro, materials, energies, parseMacro, parseMaterials, parseEnergy, updateYears, calculateUnit, totalEnergyData, unitProductionEnergy, unitValueEnergy };
         }
     }).mount('#app');
 </script>
