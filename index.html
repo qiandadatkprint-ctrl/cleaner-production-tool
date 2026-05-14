@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清洁生产审核数据分析工作台</title>
+    <!-- 引入 Vue 3, ECharts 和 Tailwind CSS -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f3f4f6; }
+        .chart-container { height: 400px; width: 100%; }
+    </style>
+</head>
+<body class="p-6 text-gray-800">
+
+<div id="app" class="max-w-7xl mx-auto space-y-6">
+    <h1 class="text-3xl font-bold text-center text-blue-800 mb-8">清洁生产审核：综合能耗与产值分析</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 左侧：数据输入面板 -->
+        <div class="col-span-1 bg-white p-6 rounded-lg shadow-md space-y-6">
+            
+            <!-- 年份与产量设置 -->
+            <div>
+                <h2 class="text-xl font-bold border-b pb-2 mb-4">1. 基础数据</h2>
+                <div class="space-y-3" v-for="(year, index) in years" :key="year">
+                    <div class="flex items-center space-x-2">
+                        <span class="font-semibold w-16">{{ year }}年</span>
+                        <input v-model.number="production[index]" type="number" class="border rounded px-2 py-1 w-full" placeholder="输入产量(万吨)">
+                        <span class="text-sm text-gray-500 w-12">万吨</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 能源消耗设置 -->
+            <div>
+                <div class="flex justify-between items-center border-b pb-2 mb-4">
+                    <h2 class="text-xl font-bold">2. 能源消耗</h2>
+                    <button @click="addEnergyItem" class="bg-blue-500 text-white px-2 py-1 rounded text-sm hover:bg-blue-600">+ 添加能源</button>
+                </div>
+                
+                <div v-for="(item, eIndex) in energies" :key="eIndex" class="mb-6 p-4 border rounded bg-gray-50 relative">
+                    <button @click="removeEnergyItem(eIndex)" class="absolute top-2 right-2 text-red-500 font-bold hover:text-red-700">×</button>
+                    <div class="flex space-x-2 mb-3">
+                        <input v-model="item.name" type="text" class="border rounded px-2 py-1 w-1/2 font-bold" placeholder="能源名称(如:电)">
+                        <input v-model="item.unit" type="text" class="border rounded px-2 py-1 w-1/4 text-sm" placeholder="单位">
+                    </div>
+                    <div class="flex items-center space-x-2 mb-3">
+                        <span class="text-sm w-20">折标系数:</span>
+                        <input v-model.number="item.factor" type="number" class="border rounded px-2 py-1 w-full text-sm">
+                        <span class="text-xs text-gray-500">kgce</span>
+                    </div>
+                    <!-- 各年份消耗量输入 -->
+                    <div class="space-y-2">
+                        <div v-for="(year, yIndex) in years" :key="year" class="flex items-center space-x-2">
+                            <span class="text-sm w-12">{{ year }}:</span>
+                            <input v-model.number="item.values[yIndex]" type="number" class="border rounded px-2 py-1 w-full text-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：图表可视化分析 -->
+        <div class="col-span-1 md:col-span-2 space-y-6">
+            <!-- 综合能耗趋势图 -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">总能耗与单位产品能耗分析</h2>
+                <div id="trendChart" class="chart-container"></div>
+            </div>
+            
+            <!-- 能源结构饼图 -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">能源结构占比分析 ({{ years[years.length-1] }}年)</h2>
+                <div id="pieChart" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            // 基础状态定义
+            const years = ref(['2024', '2025']);
+            const production = ref([15.5, 18.2]); // 产量
+            
+            // 能源种类及数据预设 (含折标系数)
+            const energies = ref([
+                { name: '电力', unit: '万kWh', factor: 0.1229, values: [500, 580] },
+                { name: '天然气', unit: '万m³', factor: 1.2143, values: [100, 115] },
+                { name: '柴油', unit: '吨', factor: 1.4571, values: [20, 18] }
+            ]);
+
+            let trendChartInstance = null;
+            let pieChartInstance = null;
+
+            // 动态增删能源项
+            const addEnergyItem = () => {
+                energies.value.push({ name: '新源', unit: '吨', factor: 1.0000, values: Array(years.value.length).fill(0) });
+            };
+            const removeEnergyItem = (index) => {
+                energies.value.splice(index, 1);
+            };
+
+            // 计算逻辑：每年总折标煤量
+            const totalEnergyce = computed(() => {
+                return years.value.map((_, yIndex) => {
+                    let total = 0;
+                    energies.value.forEach(energy => {
+                        total += (energy.values[yIndex] || 0) * energy.factor;
+                    });
+                    return parseFloat(total.toFixed(2));
+                });
+            });
+
+            // 计算逻辑：单位产品能耗 (总能耗 / 产量)
+            const unitEnergyce = computed(() => {
+                return totalEnergyce.value.map((total, yIndex) => {
+                    const prod = production.value[yIndex];
+                    if (!prod || prod === 0) return 0;
+                    return parseFloat((total / prod).toFixed(2));
+                });
+            });
+
+            // 渲染趋势图 (双Y轴：柱状图表示总量，折线图表示单耗)
+            const renderTrendChart = () => {
+                if (!trendChartInstance) trendChartInstance = echarts.init(document.getElementById('trendChart'));
+                
+                const option = {
+                    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                    legend: { data: ['综合总能耗 (吨标煤)', '单位产品能耗 (吨标煤/万吨)'] },
+                    xAxis: [{ type: 'category', data: years.value, axisPointer: { type: 'shadow' } }],
+                    yAxis: [
+                        { type: 'value', name: '总能耗', axisLabel: { formatter: '{value}' } },
+                        { type: 'value', name: '单位能耗', axisLabel: { formatter: '{value}' } }
+                    ],
+                    series: [
+                        {
+                            name: '综合总能耗 (吨标煤)',
+                            type: 'bar',
+                            yAxisIndex: 0,
+                            data: totalEnergyce.value,
+                            itemStyle: { color: '#3b82f6' } // 蓝色
+                        },
+                        {
+                            name: '单位产品能耗 (吨标煤/万吨)',
+                            type: 'line',
+                            yAxisIndex: 1,
+                            data: unitEnergyce.value,
+                            itemStyle: { color: '#ef4444' }, // 红色
+                            symbolSize: 10,
+                            lineStyle: { width: 3 }
+                        }
+                    ]
+                };
+                trendChartInstance.setOption(option);
+            };
+
+            // 渲染饼图 (取最后一年数据)
+            const renderPieChart = () => {
+                if (!pieChartInstance) pieChartInstance = echarts.init(document.getElementById('pieChart'));
+                
+                const lastYearIndex = years.value.length - 1;
+                const pieData = energies.value.map(energy => {
+                    const ceValue = (energy.values[lastYearIndex] || 0) * energy.factor;
+                    return { name: energy.name, value: parseFloat(ceValue.toFixed(2)) };
+                });
+
+                const option = {
+                    tooltip: { trigger: 'item', formatter: '{a} <br/>{b} : {c} 吨标煤 ({d}%)' },
+                    legend: { orient: 'vertical', left: 'left' },
+                    series: [{
+                        name: '能源结构',
+                        type: 'pie',
+                        radius: '60%',
+                        data: pieData,
+                        emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+                    }]
+                };
+                pieChartInstance.setOption(option);
+            };
+
+            const updateCharts = () => {
+                renderTrendChart();
+                renderPieChart();
+            };
+
+            // 监听所有输入数据的变化，一旦变化自动重绘图表
+            watch([production, energies], () => {
+                updateCharts();
+            }, { deep: true });
+
+            onMounted(() => {
+                nextTick(() => { updateCharts(); });
+                // 窗口尺寸变化时自适应
+                window.addEventListener('resize', () => {
+                    if (trendChartInstance) trendChartInstance.resize();
+                    if (pieChartInstance) pieChartInstance.resize();
+                });
+            });
+
+            return { years, production, energies, addEnergyItem, removeEnergyItem };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
