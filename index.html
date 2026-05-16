@@ -3,91 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>清洁生产审核 - 智能数据工作台 V4</title>
+    <title>清洁生产审核 - 智能数据工作台 (纯净版)</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f1f5f9; font-family: "Times New Roman", SimSun, sans-serif; }
+        body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #334155; }
         .chart-container { height: 350px; width: 100%; }
-        /* 针对Word优化的表格样式 */
-        .report-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; background: white;}
-        .report-table th, .report-table td { border: 1px solid #000; padding: 6px; }
-        .report-table th { font-weight: bold; background-color: #f8fafc; }
-        /* 输入区与卡片样式 */
-        .input-area { font-family: monospace; font-size: 12px; height: 100px; border: 2px dashed #cbd5e1; transition: all 0.3s;}
-        .input-area:focus { border-color: #3b82f6; outline: none; background-color: #eff6ff; }
-        .section-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        
+        /* 针对Word优化的表格样式 (保留硬朗的黑边框，便于直接复制) */
+        .report-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; background: white; font-family: SimSun, "Times New Roman", serif;}
+        .report-table th, .report-table td { border: 1px solid #000; padding: 8px 6px; }
+        .report-table th { font-weight: bold; background-color: #f1f5f9; }
+        
+        /* 现代输入区与卡片样式 */
+        .input-area { font-family: monospace; font-size: 13px; height: 110px; border: 1px dashed #cbd5e1; border-radius: 6px; transition: all 0.2s; background-color: #f8fafc; color: #475569;}
+        .input-area:focus { border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); outline: none; }
+        .section-card { background: white; padding: 24px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); }
+        .custom-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; outline: none; transition: border-color 0.2s; font-family: inherit;}
+        .custom-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6;}
+        
         /* 隐藏滚动条 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="p-4">
+<body class="p-4 md:p-6">
 
 <div id="app" class="max-w-screen-2xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold text-center mb-6" style="font-family: SimSun;">清洁生产数据集成系统</h1>
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800 tracking-wide" style="font-family: SimSun;">清洁生产数据集成系统</h1>
+    </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <div class="lg:col-span-5 space-y-4 max-h-screen overflow-y-auto no-scrollbar pb-20">
+        <div class="lg:col-span-5 space-y-5 max-h-[85vh] overflow-y-auto no-scrollbar pb-10 px-1">
             
-            <div class="section-card border-t-4 border-blue-600">
-                <h2 class="text-lg font-bold mb-3" style="font-family: SimSun;">1. 年份控制面板</h2>
-                <div class="flex items-center space-x-3 bg-gray-50 p-3 rounded border">
-                    <button @click="removeYear" class="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded font-bold transition">- 减少年份</button>
-                    <div class="flex space-x-2 flex-1 overflow-x-auto no-scrollbar">
-                        <input v-for="(y, i) in years" :key="i" v-model="years[i]" type="text" class="w-16 border rounded text-center text-sm py-1 font-bold">
+            <div class="section-card">
+                <h2 class="text-base font-bold text-slate-800 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    年度序列控制
+                </h2>
+                <div class="flex items-center space-x-3 bg-slate-50 p-3 rounded-md border border-slate-200">
+                    <button @click="removeYear" class="bg-white border border-slate-300 hover:bg-red-50 text-red-600 px-3 py-1.5 rounded text-sm font-semibold transition shadow-sm">- 减少</button>
+                    <div class="flex space-x-2 flex-1 overflow-x-auto no-scrollbar justify-center">
+                        <input v-for="(y, i) in years" :key="i" v-model="years[i]" type="text" class="custom-input w-16 text-center text-sm font-bold text-slate-700 bg-white shadow-inner">
                     </div>
-                    <button @click="addYear" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded font-bold transition">+ 增加年份</button>
+                    <button @click="addYear" class="bg-white border border-slate-300 hover:bg-blue-50 text-blue-600 px-3 py-1.5 rounded text-sm font-semibold transition shadow-sm">+ 增加</button>
                 </div>
             </div>
 
-            <div class="section-card border-t-4 border-purple-600">
-                <h2 class="text-lg font-bold mb-3" style="font-family: SimSun;">2. 智能粘贴提取区 (从Excel复制)</h2>
-                <div class="space-y-3">
+            <div class="section-card">
+                <h2 class="text-base font-bold text-slate-800 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    数据提取区 (Excel复制粘贴)
+                </h2>
+                <div class="space-y-4">
                     <div>
-                        <div class="text-xs font-bold text-gray-600 mb-1">▶ 产值与产量 (格式：类别 单位 数值1 数值2...)</div>
-                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-2" placeholder="在此粘贴，例如：&#10;产量 万颗 164528 109161 100082&#10;产值 万元 25856 19425 17792"></textarea>
+                        <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">产值与产量</div>
+                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-3" placeholder="格式：类别 单位 数值1 数值2...&#10;例如：&#10;产量 万颗 164528 109161 100082&#10;产值 万元 25856 19425 17792"></textarea>
                     </div>
                     <div>
-                        <div class="text-xs font-bold text-gray-600 mb-1">▶ 原辅材料消耗 (格式：名称 单位 数值1 数值2...)</div>
-                        <textarea v-model="pasteData.materials" @input="parseMaterials" class="input-area w-full p-2" placeholder="在此粘贴，例如：&#10;电镀锡球 KG 12580 7600 6580&#10;铝线 千米 947 321 496"></textarea>
+                        <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">原辅材料消耗</div>
+                        <textarea v-model="pasteData.materials" @input="parseMaterials" class="input-area w-full p-3" placeholder="格式：名称 单位 数值1 数值2...&#10;例如：&#10;电镀锡球 KG 12580 7600 6580&#10;铝线 千米 947 321 496"></textarea>
                     </div>
                     <div>
-                        <div class="text-xs font-bold text-gray-600 mb-1">▶ 能源消耗 (自动过滤无关行，只提取原始能源)</div>
-                        <textarea v-model="pasteData.energy" @input="parseEnergy" class="input-area w-full p-2" placeholder="在此粘贴，例如：&#10;电 万kWh 1548 1270 1132&#10;柴油 吨 0.33 0.33 0.33"></textarea>
+                        <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">能源消耗 (自动过滤报表干扰项)</div>
+                        <textarea v-model="pasteData.energy" @input="parseEnergy" class="input-area w-full p-3" placeholder="格式：名称 单位 数值1 数值2...&#10;例如：&#10;电 万kWh 1548 1270 1132&#10;天然气 万m³ 12.5 13.1 14.0"></textarea>
                     </div>
                 </div>
             </div>
 
-            <div class="section-card border-t-4 border-yellow-500 bg-yellow-50">
-                <h2 class="text-lg font-bold mb-3" style="font-family: SimSun;">3. 能源参数手动校验与微调</h2>
-                <p class="text-xs text-gray-500 mb-3 italic">* 若需修改个别数据或折标系数，可直接在下方修改，图表会实时更新。</p>
+            <div class="section-card border-l-4 border-yellow-400 bg-slate-50">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        参数校验与微调
+                    </h2>
+                </div>
                 
                 <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4 border-b pb-3 border-yellow-200">
-                        <div><span class="text-sm font-bold">产量单位: </span><input v-model="macro.production.unit" class="border rounded px-2 py-1 w-20 text-sm"></div>
-                        <div><span class="text-sm font-bold">产值单位: </span><input v-model="macro.value.unit" class="border rounded px-2 py-1 w-20 text-sm"></div>
+                    <div class="grid grid-cols-2 gap-4 border-b border-slate-200 pb-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm font-semibold text-slate-600">产量单位</span>
+                            <input v-model="macro.production.unit" class="custom-input w-full text-sm">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm font-semibold text-slate-600">产值单位</span>
+                            <input v-model="macro.value.unit" class="custom-input w-full text-sm">
+                        </div>
                     </div>
 
-                    <div>
-                        <div v-for="(eng, idx) in energies" :key="'e'+idx" class="mb-3 bg-white p-3 border rounded shadow-sm relative">
-                            <button @click="energies.splice(idx,1)" class="absolute top-2 right-2 text-red-500 font-bold hover:text-red-700">×</button>
-                            <div class="flex items-center space-x-2 mb-2 pr-4">
-                                <input v-model="eng.name" class="border rounded px-2 py-1 w-20 text-sm font-bold" placeholder="能源名">
-                                <input v-model="eng.unit" class="border rounded px-2 py-1 w-16 text-sm" placeholder="单位">
-                                <span class="text-xs text-gray-500">折标系数:</span>
-                                <input v-model.number="eng.factor" type="number" step="0.0001" class="border rounded px-2 py-1 flex-1 text-sm bg-yellow-100 font-bold text-blue-600">
+                    <div class="space-y-3">
+                        <div v-for="(eng, idx) in energies" :key="'e'+idx" class="bg-white p-3 border border-slate-200 rounded-md shadow-sm relative group">
+                            <button @click="energies.splice(idx,1)" class="absolute top-2 right-2 text-slate-400 hover:text-red-500 font-bold opacity-0 group-hover:opacity-100 transition">✕</button>
+                            <div class="flex items-center space-x-2 mb-3 pr-6">
+                                <input v-model="eng.name" class="custom-input w-20 text-sm font-bold text-slate-700" placeholder="能源">
+                                <input v-model="eng.unit" class="custom-input w-16 text-sm" placeholder="单位">
+                                <span class="text-xs text-slate-500 font-medium whitespace-nowrap">折标系数</span>
+                                <input v-model.number="eng.factor" type="number" step="0.0001" class="custom-input flex-1 text-sm bg-blue-50 text-blue-700 font-bold">
                             </div>
-                            <div class="flex flex-wrap gap-2 items-center bg-gray-50 p-2 rounded">
-                                <div v-for="(y, yIdx) in years" :key="'ey'+yIdx" class="flex items-center space-x-1">
-                                    <span class="text-xs text-gray-600">{{ y }}年:</span>
-                                    <input v-model.number="eng.values[yIdx]" type="number" class="border rounded px-1 py-1 w-20 text-sm">
+                            <div class="flex flex-wrap gap-2 items-center bg-slate-50 p-2 rounded border border-slate-100">
+                                <div v-for="(y, yIdx) in years" :key="'ey'+yIdx" class="flex items-center space-x-1.5">
+                                    <span class="text-xs font-semibold text-slate-500">{{ y }}:</span>
+                                    <input v-model.number="eng.values[yIdx]" type="number" class="custom-input w-16 text-xs text-center">
                                 </div>
                             </div>
                         </div>
-                        <button @click="addManualEnergy" class="text-xs bg-white border border-blue-400 text-blue-600 font-bold px-3 py-2 rounded hover:bg-blue-50">+ 手动添加新项 (如柴油)</button>
+                        <button @click="addManualEnergy" class="w-full text-sm border border-dashed border-blue-300 text-blue-600 font-semibold py-2 rounded-md hover:bg-blue-50 transition">+ 手动添加能源项 (如无Excel源数据)</button>
                     </div>
                 </div>
             </div>
@@ -95,10 +118,10 @@
 
         <div class="lg:col-span-7 space-y-6">
             
-            <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
-                <h2 class="text-xl font-bold mb-6 text-center" style="font-family: SimSun;">📋 可复制报告表格与图表区</h2>
+            <div class="section-card">
+                <h2 class="text-lg font-bold mb-6 text-center text-slate-800" style="font-family: SimSun;">📋 报告表格与可视化输出区</h2>
                 
-                <p class="font-bold mb-2 text-center" style="font-family: SimSun;">表（一） 主要产品产量和产值汇总表</p>
+                <p class="font-bold mb-2 text-center text-slate-800" style="font-family: SimSun;">表（一） 主要产品产量和产值汇总表</p>
                 <div class="overflow-x-auto mb-8">
                     <table class="report-table">
                         <thead>
@@ -126,12 +149,22 @@
                     </table>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                    <div id="chartProd" class="chart-container"></div>
-                    <div id="chartVal" class="chart-container"></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <button @click="downloadChart('p', '产量趋势')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                            📥 导出高清图
+                        </button>
+                        <div id="chartProd" class="chart-container"></div>
+                    </div>
+                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <button @click="downloadChart('v', '产值趋势')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                            📥 导出高清图
+                        </button>
+                        <div id="chartVal" class="chart-container"></div>
+                    </div>
                 </div>
 
-                <p class="font-bold mb-2 text-center" style="font-family: SimSun;">表（二） 企业历年产品主要原辅材料单耗情况</p>
+                <p class="font-bold mb-2 text-center text-slate-800" style="font-family: SimSun;">表（二） 企业历年产品主要原辅材料单耗情况</p>
                 <div class="overflow-x-auto mb-8">
                     <table class="report-table">
                         <thead>
@@ -142,7 +175,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="font-bold bg-gray-50">
+                            <tr class="font-bold" style="background-color: #f8fafc;">
                                 <td>全厂产品</td>
                                 <td>{{ macro.production.unit }}</td>
                                 <td v-for="val in macro.production.values">{{ val }}</td>
@@ -158,8 +191,8 @@
                     </table>
                 </div>
 
-                <p class="font-bold mb-2 text-center" style="font-family: SimSun;">表（三） 企业历年能、资源消耗情况</p>
-                <div class="overflow-x-auto mb-2">
+                <p class="font-bold mb-2 text-center text-slate-800" style="font-family: SimSun;">表（三） 企业历年能、资源消耗情况</p>
+                <div class="overflow-x-auto mb-3">
                     <table class="report-table">
                         <thead>
                             <tr>
@@ -169,12 +202,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="bg-gray-50">
+                            <tr style="background-color: #f8fafc;">
                                 <td>产量</td>
                                 <td>{{ macro.production.unit }}</td>
                                 <td v-for="val in macro.production.values">{{ val }}</td>
                             </tr>
-                            <tr class="bg-gray-50">
+                            <tr style="background-color: #f8fafc;">
                                 <td>产值</td>
                                 <td>{{ macro.value.unit }}</td>
                                 <td v-for="val in macro.value.values">{{ val }}</td>
@@ -190,29 +223,39 @@
                                     <td v-for="val in eng.values">{{ (val * eng.factor).toFixed(3) }}</td>
                                 </tr>
                             </template>
-                            <tr class="font-bold bg-blue-50">
+                            <tr class="font-bold" style="background-color: #eff6ff;">
                                 <td rowspan="3">综合能耗</td>
                                 <td>吨标煤</td>
                                 <td v-for="val in totalEnergyData">{{ val }}</td>
                             </tr>
-                            <tr class="bg-blue-50">
+                            <tr style="background-color: #eff6ff;">
                                 <td>吨标煤/{{ macro.production.unit }}</td>
                                 <td v-for="val in unitProductionEnergy">{{ val }}</td>
                             </tr>
-                            <tr class="bg-blue-50">
+                            <tr style="background-color: #eff6ff;">
                                 <td>吨标煤/{{ macro.value.unit }}</td>
                                 <td v-for="val in unitValueEnergy">{{ val }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div class="text-xs text-gray-700 font-bold text-left mb-8" style="font-family: SimSun;" v-show="energies.length > 0">
-                    注：折标系数分别采用 {{ energyFactorsText }}。
+                <div class="text-xs text-slate-600 mb-8 px-2" style="font-family: SimSun;" v-show="energies.length > 0">
+                    * 注：折标系数分别采用 {{ energyFactorsText }}
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div id="chartETotal" class="chart-container"></div>
-                    <div id="chartEUnit" class="chart-container"></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <button @click="downloadChart('et', '年度综合总能耗')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                            📥 导出高清图
+                        </button>
+                        <div id="chartETotal" class="chart-container"></div>
+                    </div>
+                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <button @click="downloadChart('eu', '年度综合能耗单耗')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                            📥 导出高清图
+                        </button>
+                        <div id="chartEUnit" class="chart-container"></div>
+                    </div>
                 </div>
 
             </div>
@@ -225,7 +268,6 @@
 
     createApp({
         setup() {
-            // ================= 状态数据 (初始全空) =================
             const years = ref(['2021', '2022', '2023']);
             const pasteData = ref({ macro: '', materials: '', energy: '' });
 
@@ -236,31 +278,25 @@
             const materials = ref([]);
             const energies = ref([]);
 
-            // ================= 核心工具方法 =================
-            // 确保数组长度与年份对齐，不足补0
             const syncArrayLength = (arr, len) => {
                 while (arr.length < len) arr.push(0);
                 if (arr.length > len) arr.length = len;
                 return arr;
             };
 
-            // 重新解析全部粘贴框 (用于防止年份变化导致数据丢失)
             const reparseAll = () => {
                 if (pasteData.value.macro) parseMacro();
                 if (pasteData.value.materials) parseMaterials();
                 if (pasteData.value.energy) parseEnergy();
             };
 
-            // ================= 年份操作 =================
             const addYear = () => {
                 const lastYear = parseInt(years.value[years.value.length - 1] || new Date().getFullYear());
                 years.value.push((lastYear + 1).toString());
                 
-                // 如果用户已经粘贴了内容，重新解析可以完美抓取到被隐藏的列！
                 if (pasteData.value.macro || pasteData.value.materials || pasteData.value.energy) {
                     reparseAll();
                 } else {
-                    // 如果没粘贴内容，直接补0
                     macro.value.production.values.push(0);
                     macro.value.value.values.push(0);
                     materials.value.forEach(m => m.values.push(0));
@@ -279,10 +315,9 @@
             };
 
             const addManualEnergy = () => {
-                energies.value.push({ name: '新源', unit: '吨', factor: 1.0, values: Array(years.value.length).fill(0) });
+                energies.value.push({ name: '新源', unit: '单位', factor: 1.0, values: Array(years.value.length).fill(0) });
             };
 
-            // ================= 智能解析器 =================
             const parseMacro = () => {
                 if (!pasteData.value.macro.trim()) return;
                 const lines = pasteData.value.macro.trim().split('\n');
@@ -322,7 +357,6 @@
                 if (!pasteData.value.energy.trim()) return;
                 const lines = pasteData.value.energy.trim().split('\n');
                 
-                // 核心修复：记录当前已有的手动修改系数，防止重新解析时被覆盖
                 const oldFactors = {};
                 energies.value.forEach(e => { oldFactors[e.name] = e.factor; });
                 
@@ -340,7 +374,6 @@
                         let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
                         vals = syncArrayLength(vals, years.value.length);
                         
-                        // 优先使用手动修改过的系数，否则取默认，最次取 1
                         let factor = oldFactors[name] !== undefined ? oldFactors[name] : (defaultFactors[name] || 1);
                         newEnergies.push({ name, unit, factor, values: vals });
                     }
@@ -348,7 +381,6 @@
                 energies.value = newEnergies;
             };
 
-            // ================= 核心计算 =================
             const calculateMaterialUnit = (amt, total) => total ? parseFloat((amt / total).toPrecision(4)) : 0;
 
             const totalEnergyData = computed(() => {
@@ -366,12 +398,11 @@
                 return energies.value.map(e => `${e.name}：${e.factor}吨标煤/${e.unit}`).join('； ') + '。';
             });
 
-            // ================= 图表渲染 =================
             let chartObjs = {};
 
             const getOption = (title, yName, data, isLine = false) => {
                 return {
-                    title: { text: title, left: 'center', textStyle: { fontFamily: 'SimSun', fontWeight: 'bold', fontSize: 16 } },
+                    title: { text: title, left: 'center', textStyle: { fontFamily: 'SimSun', fontWeight: 'bold', fontSize: 16, color: '#1e293b' } },
                     tooltip: { trigger: 'axis' },
                     grid: { left: '15%', right: '10%', bottom: '15%' },
                     xAxis: { 
@@ -384,14 +415,14 @@
                         nameLocation: 'middle', 
                         nameGap: 45, 
                         nameRotate: 90, 
-                        nameTextStyle: { fontFamily: 'SimSun', fontSize: 14, color: '#000' },
+                        nameTextStyle: { fontFamily: 'SimSun', fontSize: 13, color: '#334155' },
                         axisLabel: { fontFamily: 'Times New Roman' }
                     },
                     series: [{ 
                         data: data, 
                         type: isLine ? 'line' : 'bar', 
                         barWidth: '40%', 
-                        itemStyle: { color: isLine ? '#ed7d31' : '#4472c4' },
+                        itemStyle: { color: isLine ? '#ed7d31' : '#4472c4', borderRadius: isLine ? 0 : [2, 2, 0, 0] },
                         symbolSize: isLine ? 8 : undefined,
                         lineStyle: isLine ? { width: 3 } : undefined
                     }]
@@ -422,6 +453,17 @@
                 chartObjs.eu.setOption(euOption);
             };
 
+            // 新增的高清下载功能
+            const downloadChart = (chartKey, filename) => {
+                const inst = chartObjs[chartKey];
+                if (!inst) return;
+                const url = inst.getDataURL({ type: 'png', pixelRatio: 3, backgroundColor: '#fff' });
+                const a = document.createElement('a'); 
+                a.download = `${filename}.png`; 
+                a.href = url; 
+                a.click();
+            };
+
             watch([macro, materials, energies, years], () => nextTick(renderAll), { deep: true });
             onMounted(() => { 
                 nextTick(renderAll); 
@@ -432,7 +474,8 @@
                 years, addYear, removeYear, 
                 pasteData, macro, materials, energies, 
                 parseMacro, parseMaterials, parseEnergy, addManualEnergy,
-                calculateMaterialUnit, totalEnergyData, unitProductionEnergy, unitValueEnergy, energyFactorsText
+                calculateMaterialUnit, totalEnergyData, unitProductionEnergy, unitValueEnergy, energyFactorsText,
+                downloadChart // 暴露给模板调用
             };
         }
     }).mount('#app');
