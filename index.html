@@ -11,7 +11,7 @@
         body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #334155; }
         .chart-container { height: 350px; width: 100%; }
         
-        /* 针对Word优化的表格样式 (保留硬朗的黑边框) */
+        /* 针对Word优化的表格样式 */
         .report-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; background: white; font-family: SimSun, "Times New Roman", serif;}
         .report-table th, .report-table td { border: 1px solid #000; padding: 8px 6px; position: relative;}
         .report-table th { font-weight: bold; background-color: #f1f5f9; }
@@ -22,9 +22,11 @@
         .custom-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; outline: none; transition: border-color 0.2s; font-family: inherit;}
         .custom-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6;}
         
-        /* 表格内编辑输入框样式 */
-        .table-input { width: 100%; text-align: center; background-color: #fef08a; border: 1px dashed #ca8a04; border-radius: 2px; padding: 2px; outline: none; font-family: inherit; font-size: 13px;}
-        .table-input:focus { background-color: #ffffff; border-style: solid; border-color: #3b82f6;}
+        /* 表格内编辑输入框样式 (无边框风格，更融入表格) */
+        .table-input { width: 100%; text-align: center; background-color: #fef08a; border: 1px dashed #ca8a04; border-radius: 2px; padding: 4px 2px; outline: none; font-family: inherit; font-size: 13px; color: #000;}
+        .table-input:focus { background-color: #ffffff; border-style: solid; border-color: #3b82f6; box-shadow: 0 0 3px rgba(59,130,246,0.5);}
+        .table-input.text-bold { font-weight: bold; color: #1d4ed8; }
+        .table-input.text-red { font-weight: bold; color: #dc2626; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -59,12 +61,12 @@
                 <h2 class="text-base font-bold text-slate-800 mb-4">数据批量提取区</h2>
                 <div class="space-y-4">
                     <div>
-                        <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">产值与具体产品产量</div>
-                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-3" placeholder="格式：名称 单位 数值1 数值2... (注：第一行建议输入全厂总产量用于能耗基准)&#10;例如：&#10;全厂总产量 吨 1500 1800 2000&#10;氢氧化铝 吨 192.66 343.95 272.74&#10;地巴唑 吨 5.6174 2.922 3.93&#10;产值 万元 25856 19425 17792"></textarea>
+                        <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">产值与具体产品产量 (支持自动汇总)</div>
+                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-3" placeholder="格式：名称 单位 数值1 数值2... (注：若只输入各子产品，系统会自动求和生成总产量)&#10;例如：&#10;氢氧化铝 吨 192 343 272&#10;地巴唑 吨 5 3 4&#10;产值 万元 25856 19425 17792"></textarea>
                     </div>
                     <div>
                         <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">原辅材料消耗总量</div>
-                        <textarea v-model="pasteData.materials" @input="parseMaterials" class="input-area w-full p-3" placeholder="格式：材料名称 对应产品 单位 数值1 数值2...&#10;例如：&#10;98%硫酸 氢氧化铝 吨 347.379 463.6 297.32&#10;30%盐酸 地巴唑 吨 8.524 4.473 0.66"></textarea>
+                        <textarea v-model="pasteData.materials" @input="parseMaterials" class="input-area w-full p-3" placeholder="格式：材料名称 对应产品 单位 数值1 数值2...&#10;例如：&#10;98%硫酸 氢氧化铝 吨 347.3 463.6 297.3&#10;30%盐酸 地巴唑 吨 8.5 4.4 0.6"></textarea>
                     </div>
                     <div>
                         <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">能源消耗</div>
@@ -86,9 +88,24 @@
 
         <div class="lg:col-span-8 space-y-6">
             
+            <div class="bg-white p-4 rounded-lg border border-blue-200 shadow-sm flex justify-between items-center sticky top-4 z-50">
+                <div class="flex items-center space-x-4">
+                    <button @click="globalEditMode = !globalEditMode" :class="globalEditMode ? 'bg-blue-600 text-white shadow-md' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'" class="px-6 py-2 rounded-md font-bold transition flex items-center">
+                        <span v-if="globalEditMode">💾 保存并退出编辑</span>
+                        <span v-else>📝 开启全局表格编辑</span>
+                    </button>
+                    <span v-if="globalEditMode" class="text-sm text-blue-600 font-semibold animate-pulse">正在编辑模式，所有单元格均可直接修改内容、单位及数值...</span>
+                </div>
+                <button @click="highlightTop5 = !highlightTop5" :class="highlightTop5 ? 'bg-red-100 text-red-700 border-red-300' : 'bg-slate-50 text-slate-600 border-slate-200'" class="border px-4 py-2 rounded-md text-sm font-semibold shadow-sm transition flex items-center">
+                    🔥 {{ highlightTop5 ? '关闭单耗预警' : '标出单耗Top 5' }}
+                </button>
+            </div>
+
             <div class="section-card">
                 
-                <p class="font-bold mb-2 text-center text-slate-800" style="font-family: SimSun;">表（一） 主要产品产量和产值汇总表</p>
+                <div class="flex justify-between items-end mb-2">
+                    <p class="font-bold text-slate-800 flex-1 text-center" style="font-family: SimSun;">表（一） 主要产品产量和产值汇总表</p>
+                </div>
                 <div class="overflow-x-auto mb-8">
                     <table class="report-table">
                         <thead>
@@ -96,150 +113,171 @@
                                 <th rowspan="2">指标名称</th>
                                 <th rowspan="2">单位</th>
                                 <th :colspan="years.length">近三年情况</th>
+                                <th v-if="globalEditMode" rowspan="2" class="w-16 bg-red-50 text-red-600">操作</th>
                             </tr>
                             <tr>
                                 <th v-for="year in years" :key="'h1'+year">{{ year }}年</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="prod in macro.products" :key="'tp'+prod.name">
-                                <td>{{ prod.name }}</td>
-                                <td>{{ prod.unit }}</td>
-                                <td v-for="val in prod.values">{{ val }}</td>
+                            <tr v-for="(prod, idx) in macro.products" :key="'tp'+idx">
+                                <td>
+                                    <input v-if="globalEditMode" v-model="prod.name" class="table-input text-bold">
+                                    <span v-else>{{ prod.name }}</span>
+                                </td>
+                                <td>
+                                    <input v-if="globalEditMode" v-model="prod.unit" class="table-input">
+                                    <span v-else>{{ prod.unit }}</span>
+                                </td>
+                                <td v-for="(val, vIdx) in prod.values" :key="'v'+vIdx">
+                                    <input v-if="globalEditMode" v-model.number="prod.values[vIdx]" type="number" class="table-input text-red">
+                                    <span v-else>{{ prod.values[vIdx] }}</span>
+                                </td>
+                                <td v-if="globalEditMode" class="bg-red-50">
+                                    <button @click="macro.products.splice(idx, 1)" class="text-red-500 hover:text-red-700 font-bold text-xs p-1">删除</button>
+                                </td>
+                            </tr>
+                            <tr v-if="globalEditMode">
+                                <td :colspan="years.length + 3" class="text-center py-2 bg-slate-50">
+                                    <button @click="addNewProduct" class="text-sm border border-dashed border-blue-400 text-blue-600 font-semibold py-1 px-4 rounded hover:bg-blue-100 transition">➕ 插入新产品</button>
+                                </td>
                             </tr>
                             <tr style="background-color: #f8fafc;" class="font-bold">
-                                <td>产值</td>
-                                <td>{{ macro.value.unit }}</td>
-                                <td v-for="val in macro.value.values">{{ val }}</td>
+                                <td>
+                                    <input v-if="globalEditMode" v-model="macro.valueName" class="table-input text-bold">
+                                    <span v-else>{{ macro.valueName }}</span>
+                                </td>
+                                <td>
+                                    <input v-if="globalEditMode" v-model="macro.value.unit" class="table-input">
+                                    <span v-else>{{ macro.value.unit }}</span>
+                                </td>
+                                <td v-for="(val, vIdx) in macro.value.values" :key="'val'+vIdx">
+                                    <input v-if="globalEditMode" v-model.number="macro.value.values[vIdx]" type="number" class="table-input text-red">
+                                    <span v-else>{{ macro.value.values[vIdx] }}</span>
+                                </td>
+                                <td v-if="globalEditMode" class="bg-red-50"></td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
-                        <button @click="downloadChart('p', '企业近几年产量变化')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
-                            📥 导出高清图
-                        </button>
-                        <div id="chartProd" class="chart-container"></div>
+                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100 flex flex-col">
+                        <div class="flex justify-between items-center mb-2 px-2 absolute top-2 left-2 right-2 z-10">
+                            <label class="text-xs font-semibold text-slate-600 flex items-center bg-white px-2 py-1 border rounded shadow-sm cursor-pointer hover:bg-slate-100">
+                                <input type="checkbox" v-model="showOnlyTotalProd" class="mr-1.5"> 仅显示总计项
+                            </label>
+                            <button @click="downloadChart('p', '企业近几年产量变化')" class="bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                                📥 导出图表
+                            </button>
+                        </div>
+                        <div id="chartProd" class="chart-container mt-6"></div>
                     </div>
                     <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
                         <button @click="downloadChart('v', '企业近几年产值变化')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
-                            📥 导出高清图
+                            📥 导出图表
                         </button>
-                        <div id="chartVal" class="chart-container"></div>
+                        <div id="chartVal" class="chart-container mt-6"></div>
                     </div>
                 </div>
 
                 <div class="flex justify-between items-end mb-2">
                     <p class="font-bold text-slate-800 flex-1 text-center" style="font-family: SimSun;">表（二） 企业历年产品主要原辅材料单耗情况</p>
-                    <div class="flex space-x-2">
-                        <button @click="highlightTop5 = !highlightTop5" :class="highlightTop5 ? 'bg-red-100 text-red-700 border-red-300' : 'bg-white text-slate-600 border-slate-200'" class="border px-3 py-1 rounded text-xs font-semibold shadow-sm transition flex items-center">
-                            🔥 {{ highlightTop5 ? '关闭预警' : '标出单耗Top 5' }}
-                        </button>
-                        <button @click="toggleEditMode('materials')" :class="editMode.materials ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'" class="border px-3 py-1 rounded text-xs font-semibold transition flex items-center">
-                            ✏️ {{ editMode.materials ? '保存编辑并查看单耗' : '修改表格与总数据' }}
-                        </button>
-                    </div>
                 </div>
                 
-                <div class="overflow-x-auto mb-2">
+                <div class="overflow-x-auto mb-8">
                     <table class="report-table">
                         <thead>
                             <tr>
                                 <th>原辅料名称</th>
                                 <th>对应产品</th>
-                                <th>{{ editMode.materials ? '录入单位' : '单耗单位' }}</th>
-                                <th v-for="year in years" :key="'h2'+year">{{ year }}年 {{ editMode.materials ? '(总消耗量)' : '' }}</th>
-                                <th v-if="editMode.materials" class="w-16 bg-red-50 text-red-600">操作</th>
+                                <th>{{ globalEditMode ? '录入单位' : '单耗单位' }}</th>
+                                <th v-for="year in years" :key="'h2'+year">{{ year }}年 {{ globalEditMode ? '(总消耗量)' : '' }}</th>
+                                <th v-if="globalEditMode" class="w-16 bg-red-50 text-red-600">操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="(mat, i) in materials" :key="'m'+i" :style="getRankStyle(i)">
-                                
                                 <td>
                                     <div v-if="highlightTop5 && getRankBadge(i)" class="absolute -top-2 -left-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10">{{ getRankBadge(i) }}</div>
-                                    <input v-if="editMode.materials" v-model="mat.name" class="table-input">
+                                    <input v-if="globalEditMode" v-model="mat.name" class="table-input">
                                     <span v-else>{{ mat.name }}</span>
                                 </td>
-                                
                                 <td>
-                                    <input v-if="editMode.materials" v-model="mat.product" class="table-input text-blue-700 font-bold" placeholder="输入产品名">
+                                    <input v-if="globalEditMode" v-model="mat.product" class="table-input text-bold" placeholder="输入产品名">
                                     <span v-else class="font-bold text-blue-700">{{ mat.product }}</span>
                                 </td>
-                                
                                 <td>
-                                    <div v-if="editMode.materials" class="flex justify-center items-center">
-                                        <input v-model="mat.unit" class="table-input w-12 mr-1"> 
-                                    </div>
+                                    <input v-if="globalEditMode" v-model="mat.unit" class="table-input"> 
                                     <span v-else>{{ mat.unit }}/{{ getProductUnit(mat.product) }}</span>
                                 </td>
-                                
                                 <td v-for="(val, vIdx) in mat.values" :key="'v'+vIdx">
-                                    <input v-if="editMode.materials" v-model.number="mat.values[vIdx]" type="number" class="table-input text-red-600 font-bold">
+                                    <input v-if="globalEditMode" v-model.number="mat.values[vIdx]" type="number" class="table-input text-red">
                                     <span v-else>{{ calculateMaterialUnit(mat, vIdx) }}</span>
                                 </td>
-                                
-                                <td v-if="editMode.materials" class="bg-red-50">
-                                    <button @click="materials.splice(i, 1)" class="text-red-500 hover:text-red-700 font-bold text-xs p-1">删除行</button>
+                                <td v-if="globalEditMode" class="bg-red-50">
+                                    <button @click="materials.splice(i, 1)" class="text-red-500 hover:text-red-700 font-bold text-xs p-1">删除</button>
+                                </td>
+                            </tr>
+                            <tr v-if="globalEditMode">
+                                <td :colspan="years.length + 4" class="text-center py-2 bg-slate-50">
+                                    <button @click="addNewMaterial" class="text-sm border border-dashed border-blue-400 text-blue-600 font-semibold py-1 px-4 rounded hover:bg-blue-100 transition">➕ 插入新原辅料</button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div v-if="editMode.materials" class="mb-8 mt-2 text-center">
-                    <button @click="addNewMaterial" class="text-sm border border-dashed border-blue-400 text-blue-600 font-semibold py-1.5 px-6 rounded-md hover:bg-blue-50 transition">➕ 在此处手动插入新原辅料行</button>
-                </div>
-                <div v-else class="mb-8"></div>
-
 
                 <div class="flex justify-between items-end mb-2">
                     <p class="font-bold text-slate-800 flex-1 text-center" style="font-family: SimSun;">表（三） 企业历年能、资源消耗情况</p>
-                    <button @click="toggleEditMode('energies')" :class="editMode.energies ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'" class="border px-3 py-1 rounded text-xs font-semibold transition flex items-center">
-                        ✏️ {{ editMode.energies ? '保存编辑并查看汇总' : '修改能源数据' }}
-                    </button>
                 </div>
                 
-                <div class="overflow-x-auto mb-3">
+                <div class="overflow-x-auto mb-8">
                     <table class="report-table">
                         <thead>
                             <tr>
                                 <th>类别</th>
                                 <th>单位</th>
                                 <th v-for="year in years" :key="'h3'+year">{{ year }}年</th>
-                                <th v-if="editMode.energies" class="w-16 bg-red-50 text-red-600">操作</th>
+                                <th v-if="globalEditMode" class="w-16 bg-red-50 text-red-600">操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             <template v-for="(eng, i) in energies" :key="'te'+i">
                                 <tr>
-                                    <td :rowspan="editMode.energies ? 1 : 2" class="font-bold">
-                                        <input v-if="editMode.energies" v-model="eng.name" class="table-input">
+                                    <td :rowspan="globalEditMode ? 1 : 2" class="font-bold">
+                                        <input v-if="globalEditMode" v-model="eng.name" class="table-input text-bold">
                                         <span v-else>{{ eng.name }}</span>
                                     </td>
                                     <td>
-                                        <input v-if="editMode.energies" v-model="eng.unit" class="table-input w-16">
+                                        <input v-if="globalEditMode" v-model="eng.unit" class="table-input">
                                         <span v-else>{{ eng.unit }}</span>
                                     </td>
                                     <td v-for="(val, vIdx) in eng.values" :key="'ev'+vIdx">
-                                        <input v-if="editMode.energies" v-model.number="eng.values[vIdx]" type="number" class="table-input text-red-600 font-bold">
+                                        <input v-if="globalEditMode" v-model.number="eng.values[vIdx]" type="number" class="table-input text-red">
                                         <span v-else>{{ val }}</span>
                                     </td>
-                                    <td v-if="editMode.energies" class="bg-red-50">
-                                        <button @click="energies.splice(i, 1)" class="text-red-500 hover:text-red-700 font-bold text-xs p-1">删除行</button>
+                                    <td v-if="globalEditMode" class="bg-red-50">
+                                        <button @click="energies.splice(i, 1)" class="text-red-500 hover:text-red-700 font-bold text-xs p-1">删除</button>
                                     </td>
                                 </tr>
-                                <tr v-if="!editMode.energies">
+                                <tr v-if="!globalEditMode">
                                     <td class="text-slate-500">吨标煤</td>
                                     <td v-for="val in eng.values" class="text-slate-500">{{ (val * eng.factor).toFixed(3) }}</td>
                                 </tr>
                             </template>
                             
+                            <tr v-if="globalEditMode">
+                                <td :colspan="years.length + 3" class="text-center py-2 bg-slate-50">
+                                    <button @click="addNewEnergy" class="text-sm border border-dashed border-blue-400 text-blue-600 font-semibold py-1 px-4 rounded hover:bg-blue-100 transition">➕ 插入新能源项</button>
+                                </td>
+                            </tr>
+
                             <tr class="font-bold" style="background-color: #eff6ff;">
                                 <td rowspan="3">综合能耗汇总</td>
                                 <td>总吨标煤</td>
                                 <td v-for="val in totalEnergyData">{{ val }}</td>
-                                <td v-if="editMode.energies" rowspan="3">计算值</td>
+                                <td v-if="globalEditMode" rowspan="3">自动计算</td>
                             </tr>
                             <tr style="background-color: #eff6ff;">
                                 <td>吨标煤/{{ mainProductForEnergy ? mainProductForEnergy.unit : '单位' }}</td>
@@ -252,24 +290,19 @@
                         </tbody>
                     </table>
                 </div>
-                <div v-if="editMode.energies" class="mb-8 mt-2 text-center">
-                    <button @click="addNewEnergy" class="text-sm border border-dashed border-blue-400 text-blue-600 font-semibold py-1.5 px-6 rounded-md hover:bg-blue-50 transition">➕ 在此处手动插入新能耗行</button>
-                </div>
-                <div v-else class="mb-8"></div>
-
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
                         <button @click="downloadChart('et', '年度综合能耗趋势图')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
-                            📥 导出高清图
+                            📥 导出图表
                         </button>
-                        <div id="chartETotal" class="chart-container"></div>
+                        <div id="chartETotal" class="chart-container mt-6"></div>
                     </div>
                     <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
                         <button @click="downloadChart('eu', '年度单位产品综合能耗单耗趋势图')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
-                            📥 导出高清图
+                            📥 导出图表
                         </button>
-                        <div id="chartEUnit" class="chart-container"></div>
+                        <div id="chartEUnit" class="chart-container mt-6"></div>
                     </div>
                 </div>
 
@@ -286,11 +319,13 @@
             const years = ref(['2020', '2021', '2022']);
             const pasteData = ref({ macro: '', materials: '', energy: '' });
             
-            const editMode = ref({ materials: false, energies: false });
+            const globalEditMode = ref(false);
             const highlightTop5 = ref(false);
+            const showOnlyTotalProd = ref(false);
 
             const macro = ref({
-                products: [{ name: '全厂总产量', unit: '吨', values: [0, 0, 0] }],
+                products: [{ name: '总产量 (自动汇总)', unit: '吨', values: [0, 0, 0] }],
+                valueName: '产值',
                 value: { unit: '万元', values: [0, 0, 0] }
             });
             const materials = ref([]);
@@ -302,14 +337,14 @@
                 return arr;
             };
 
-            const toggleEditMode = (type) => {
-                editMode.value[type] = !editMode.value[type];
+            const addNewProduct = () => {
+                macro.value.products.push({ name: '新产品', unit: '吨', values: Array(years.value.length).fill(0) });
             };
 
             const addNewMaterial = () => {
                 materials.value.push({ 
-                    name: '在此输入名称', 
-                    product: macro.value.products[0]?.name || '全厂总产量', 
+                    name: '新材料', 
+                    product: macro.value.products[0]?.name || '新产品', 
                     unit: '吨', 
                     values: Array(years.value.length).fill(0) 
                 });
@@ -317,7 +352,7 @@
 
             const addNewEnergy = () => {
                 energies.value.push({ 
-                    name: '在此输入能源', 
+                    name: '新能源', 
                     unit: '单位', 
                     factor: 1.0000, 
                     values: Array(years.value.length).fill(0) 
@@ -343,24 +378,43 @@
                 }
             };
 
+            // 核心：产量支持自动汇总
             const parseMacro = () => {
                 if (!pasteData.value.macro.trim()) return;
                 const lines = pasteData.value.macro.trim().split('\n');
-                const newProducts = [];
+                const parsedProducts = [];
+                let parsedValue = null;
+
                 lines.forEach(line => {
                     const parts = line.trim().split(/\s+/);
                     if (parts.length >= 3) {
-                        if (parts[0].includes('产值')) {
-                            macro.value.value.unit = parts[1];
+                        if (parts[0].includes('产值') || parts[0].includes('营收')) {
+                            macro.value.valueName = parts[0];
                             let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
-                            macro.value.value.values = syncArrayLength(vals, years.value.length);
+                            parsedValue = { unit: parts[1], values: syncArrayLength(vals, years.value.length) };
                         } else {
                             let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
-                            newProducts.push({ name: parts[0], unit: parts[1], values: syncArrayLength(vals, years.value.length) });
+                            parsedProducts.push({ name: parts[0], unit: parts[1], values: syncArrayLength(vals, years.value.length) });
                         }
                     }
                 });
-                if(newProducts.length > 0) macro.value.products = newProducts;
+
+                // 判断是否包含"总"关键字，若无，自动求和汇总
+                if (parsedProducts.length > 0) {
+                    const hasTotal = parsedProducts.some(p => p.name.includes('总') || p.name.includes('全厂') || p.name.includes('合计'));
+                    if (!hasTotal && parsedProducts.length >= 1) {
+                        const totalValues = Array(years.value.length).fill(0);
+                        parsedProducts.forEach(p => {
+                            p.values.forEach((v, i) => totalValues[i] += v);
+                        });
+                        parsedProducts.unshift({ name: '总产量 (自动汇总)', unit: parsedProducts[0].unit, values: totalValues });
+                    }
+                    macro.value.products = parsedProducts;
+                }
+
+                if (parsedValue) {
+                    macro.value.value = parsedValue;
+                }
             };
             
             const parseMaterials = () => {
@@ -440,6 +494,7 @@
                 return `Top ${rankIndex + 1}`;
             };
 
+            // 综合能耗除数默认取排第一的产量（通常是总产量）
             const mainProductForEnergy = computed(() => macro.value.products[0] || null);
 
             const totalEnergyData = computed(() => {
@@ -465,38 +520,44 @@
                 if (!chartObjs.et) chartObjs.et = echarts.init(document.getElementById('chartETotal'));
                 if (!chartObjs.eu) chartObjs.eu = echarts.init(document.getElementById('chartEUnit'));
 
-                // 图1：企业近几年产量变化
-                const prodSeries = macro.value.products.map(p => ({
-                    name: p.name, type: 'bar', data: p.values, itemStyle: { borderRadius: [2, 2, 0, 0] }
+                // 处理图1：过滤功能与宽度锁定 (barMaxWidth: 50 保证无论单根还是多根都不会过宽)
+                let prodToRender = macro.value.products;
+                if (showOnlyTotalProd.value) {
+                    const totalProd = macro.value.products.find(p => p.name.includes('总') || p.name.includes('全厂') || p.name.includes('合计')) || macro.value.products[0];
+                    prodToRender = [totalProd];
+                }
+                const prodSeries = prodToRender.map(p => ({
+                    name: p.name, type: 'bar', barMaxWidth: 50, data: p.values, itemStyle: { borderRadius: [2, 2, 0, 0] }
                 }));
+
                 chartObjs.p.setOption({
                     title: { text: '企业近几年产量变化', left: 'center', textStyle: { fontFamily: 'SimSun', fontSize: 16 } },
                     tooltip: { trigger: 'axis' },
-                    legend: { data: macro.value.products.map(p => p.name), bottom: 0 },
+                    legend: { data: prodToRender.map(p => p.name), bottom: 0 },
                     xAxis: { type: 'category', data: years.value },
                     yAxis: { type: 'value', name: '产量' },
                     series: prodSeries
                 }, true);
 
-                // 图2：企业近几年产值变化
+                // 图2：产值宽度同样锁定 barMaxWidth: 50
                 chartObjs.v.setOption({
                     title: { text: '企业近几年产值变化', left: 'center', textStyle: { fontFamily: 'SimSun', fontSize: 16 } },
                     tooltip: { trigger: 'axis' },
                     xAxis: { type: 'category', data: years.value },
-                    yAxis: { type: 'value', name: '产值/' + macro.value.value.unit },
-                    series: [{ type: 'bar', data: macro.value.value.values, barWidth: '40%', itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
+                    yAxis: { type: 'value', name: macro.value.valueName + '/' + macro.value.value.unit },
+                    series: [{ type: 'bar', barMaxWidth: 50, data: macro.value.value.values, itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
                 }, true);
                 
-                // 图3：年度综合能耗趋势图
+                // 图3：能耗趋势宽度锁定 barMaxWidth: 50
                 chartObjs.et.setOption({
                     title: { text: '年度综合能耗趋势图', left: 'center', textStyle: { fontFamily: 'SimSun', fontSize: 16 } },
                     tooltip: { trigger: 'axis' },
                     xAxis: { type: 'category', data: years.value },
                     yAxis: { type: 'value', name: '吨标煤' },
-                    series: [{ type: 'bar', data: totalEnergyData.value, barWidth: '40%', itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
+                    series: [{ type: 'bar', barMaxWidth: 50, data: totalEnergyData.value, itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
                 }, true);
 
-                // 图4：年度单位产品综合能耗单耗趋势图
+                // 图4：单耗趋势
                 chartObjs.eu.setOption({
                     title: { text: '年度单位产品综合能耗单耗趋势图', left: 'center', textStyle: { fontFamily: 'SimSun', fontSize: 16 } },
                     tooltip: { trigger: 'axis' },
@@ -507,7 +568,7 @@
                         { type: 'value', name: '吨标煤/万元', splitLine: { show: false } }
                     ],
                     series: [
-                        { name: '单位产品综合能耗', type: 'bar', data: unitProductionEnergy.value, itemStyle: { color: '#4472c4' } },
+                        { name: '单位产品综合能耗', type: 'bar', barMaxWidth: 50, data: unitProductionEnergy.value, itemStyle: { color: '#4472c4' } },
                         { name: '万元产值综合能耗', type: 'line', yAxisIndex: 1, data: unitValueEnergy.value, itemStyle: { color: '#ed7d31' }, lineStyle: { width: 3 }, symbolSize: 8 }
                     ]
                 }, true);
@@ -523,7 +584,7 @@
                 a.click();
             };
 
-            watch([macro, materials, energies, years, editMode], () => nextTick(renderAll), { deep: true });
+            watch([macro, materials, energies, years, globalEditMode, showOnlyTotalProd], () => nextTick(renderAll), { deep: true });
             onMounted(() => { 
                 nextTick(renderAll); 
                 window.addEventListener('resize', () => Object.values(chartObjs).forEach(c => c && c.resize())); 
@@ -533,10 +594,10 @@
                 years, addYear, removeYear, 
                 pasteData, macro, materials, energies, 
                 parseMacro, parseMaterials, parseEnergy, 
-                editMode, toggleEditMode, addNewMaterial, addNewEnergy,
+                globalEditMode, addNewProduct, addNewMaterial, addNewEnergy,
                 calculateMaterialUnit, totalEnergyData, unitProductionEnergy, unitValueEnergy,
                 getProductUnit, mainProductForEnergy,
-                highlightTop5, getRankStyle, getRankBadge,
+                highlightTop5, getRankStyle, getRankBadge, showOnlyTotalProd,
                 downloadChart
             };
         }
