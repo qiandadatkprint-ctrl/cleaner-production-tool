@@ -59,11 +59,11 @@
                 <div class="space-y-4">
                     <div>
                         <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">产值与产品产量</div>
-                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-3" placeholder="格式：名称 单位 数值1 数值2... (支持仅录总产量/总产值，也支持输入多产品系统实时汇总)&#10;例如：&#10;氢氧化铝 吨 192.66 343.95 272.74&#10;总产值 万元 9917 10429 12340"></textarea>
+                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-3" placeholder="格式：名称 单位 数值1 数值2... (支持直接输入多产品系统实时汇总)&#10;例如：&#10;氢氧化铝 吨 192.66 343.95 272.74&#10;地巴唑 吨 5.6174 2.922 3.93"></textarea>
                     </div>
                     <div>
                         <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">原辅材料消耗总量</div>
-                        <textarea v-model="pasteData.materials" @input="parseMaterials" class="input-area w-full p-3" placeholder="格式：材料名称 对应产品 单位 数值1 数值2...&#10;例如：&#10;98%硫酸 氢氧化铝 吨 347.3 463.6 297.3"></textarea>
+                        <textarea v-model="pasteData.materials" @input="parseMaterials" class="input-area w-full p-3" placeholder="支持直接从Word/Excel粘贴合并单元格数据！系统会自动记忆对应产品。&#10;例如：&#10;98%硫酸   氢氧化铝  吨 347.3 463.6 297.3&#10;30%液碱             吨 270   230.3 264.3 (产品自动继承为氢氧化铝)"></textarea>
                     </div>
                     <div>
                         <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">能源消耗</div>
@@ -420,6 +420,7 @@
             const highlightTop5 = ref(false);
             const showOnlyTotalProd = ref(false);
 
+            // 常驻总产量和总产值底座
             const macro = ref({
                 products: [], 
                 totalProd: { name: '总产量', unit: '吨', values: [0, 0, 0] },
@@ -503,19 +504,88 @@
                 macro.value.products = newProducts;
             };
             
+            // 核心重构：支持记忆式合并单元格解析
             const parseMaterials = () => {
                 if (!pasteData.value.materials.trim()) return;
                 const lines = pasteData.value.materials.trim().split('\n');
                 const newMaterials = [];
+                
+                let currentProduct = macro.value.products[0]?.name || macro.value.totalProd.name;
+
                 lines.forEach(line => {
-                    const parts = line.trim().split(/\s+/);
-                    if (parts.length >= 4 && !['名称', '类别', '全厂产品'].includes(parts[0]) && !parts[0].includes('消耗量')) {
-                        const name = parts[0];
-                        const product = parts[1];
-                        let rawUnit = parts[2];
-                        if(rawUnit.includes('/')) rawUnit = rawUnit.split('/')[0];
-                        let vals = parts.slice(3).map(v => parseFloat(v) || 0).slice(0, years.value.length);
-                        newMaterials.push({ name, product, unit: rawUnit, values: syncArrayLength(vals, years.value.length) });
+                    if (!line.trim()) return;
+
+                    // 优先按照 Excel/Word 复制时生成的制表符 \t 分割
+                    let isTabSeparated = line.includes('\t');
+                    let parts = isTabSeparated ? line.split('\t').map(s => s.trim()) : line.trim().split(/\s+/);
+
+                    if (!isTabSeparated) {
+                        parts = parts.filter(p => p !== '');
+                    }
+
+                    if (parts.length < 3 || ['名称', '类别', '全厂产品', '序号'].includes(parts[0]) || parts[0].includes('消耗量')) return;
+
+                    let name, product, rawUnit, valParts;
+
+                    if (isTabSeparated) {
+                        // 寻找数字起始列（从右往左看），以应对不同格式的合并单元格空白
+                        let numStartIdx = -1;
+                        for(let i = Math.max(1, parts.length - years.value.length); i < parts.length; i++) {
+                            if (!isNaN(parseFloat(parts[i])) && parts[i] !== '') {
+                                numStartIdx = i;
+                                break;
+                            }
+                        }
+
+                        if (numStartIdx >= 2) {
+                            rawUnit = parts[numStartIdx - 1];
+                            let potentialProduct = parts[numStartIdx - 2];
+
+                            // 如果对应产品单元格不为空，更新记忆；否则继承上次记忆
+                            if (potentialProduct !== "") {
+                                product = potentialProduct;
+                                currentProduct = product; 
+                            } else {
+                                product = currentProduct;
+                            }
+                            name = parts[0];
+                            valParts = parts.slice(numStartIdx, numStartIdx + years.value.length);
+                        } else {
+                            isTabSeparated = false; // 降级处理
+                            parts = line.trim().split(/\s+/);
+                        }
+                    }
+
+                    // 如果不是制表符（纯文本敲击空格），采用长度侦测逻辑
+                    if (!isTabSeparated) {
+                        if (parts.length >= years.value.length + 2) {
+                            valParts = parts.slice(-years.value.length);
+                            rawUnit = parts[parts.length - years.value.length - 1];
+                            const remainingParts = parts.slice(0, parts.length - years.value.length - 1);
+
+                            if (remainingParts.length === 1) {
+                                name = remainingParts[0];
+                                product = currentProduct;
+                            } else if (remainingParts.length >= 2) {
+                                const lastPart = remainingParts[remainingParts.length - 1];
+                                const isKnownProduct = macro.value.products.some(p => p.name === lastPart) || lastPart === macro.value.totalProd.name;
+
+                                if (isKnownProduct) {
+                                    product = lastPart;
+                                    currentProduct = product;
+                                    name = remainingParts.slice(0, -1).join(' ');
+                                } else {
+                                    name = remainingParts.join(' ');
+                                    product = currentProduct;
+                                }
+                            }
+                        }
+                    }
+
+                    if (name && valParts) {
+                        if(rawUnit && rawUnit.includes('/')) rawUnit = rawUnit.split('/')[0];
+                        const vals = valParts.map(v => parseFloat(v) || 0);
+                        newMaterials.push({ name, product, unit: rawUnit || '吨', values: syncArrayLength(vals, years.value.length) });
                     }
                 });
                 materials.value = newMaterials;
@@ -608,7 +678,6 @@
                 });
             });
 
-            // 统一利用底部常驻的总产量做分母运算
             const unitProductionEnergy = computed(() => {
                 return totalEnergyData.value.map((t, i) => macro.value.totalProd.values[i] ? parseFloat((t / macro.value.totalProd.values[i]).toFixed(3)) : 0);
             });
@@ -634,7 +703,7 @@
                     if (!chartObjs.rv) chartObjs.rv = echarts.init(document.getElementById('chartRUnitVal'));
                 }
 
-                // 统一的网格配置保证左侧文本能完整显示
+                // Echarts 坐标轴正规布局：给左侧留出足够空间放置旋转90度的文本
                 const commonGrid = { left: '18%', right: '12%', bottom: '15%', top: '20%' };
 
                 let prodToRender = macro.value.products;
