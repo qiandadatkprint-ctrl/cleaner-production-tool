@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>清洁生产审核 - 智能数据工作台 (原位编辑与高耗预警版)</title>
+    <title>清洁生产审核 - 智能数据工作台</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -324,8 +324,9 @@
                 }
             };
 
-            const parseMacro = () => { ... } // (此段代码由于排版过长略作压缩，保留原版解析逻辑即可)
-            if (!pasteData.value.macro.trim()) return;
+            // 完整修复的 parseMacro 函数，不再省略
+            const parseMacro = () => {
+                if (!pasteData.value.macro.trim()) return;
                 const lines = pasteData.value.macro.trim().split('\n');
                 const newProducts = [];
                 lines.forEach(line => {
@@ -342,6 +343,7 @@
                     }
                 });
                 if(newProducts.length > 0) macro.value.products = newProducts;
+            };
             
             const parseMaterials = () => {
                 if (!pasteData.value.materials.trim()) return;
