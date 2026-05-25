@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #334155; }
-        .chart-container { height: 400px; width: 100%; }
+        .chart-container { height: 420px; width: 100%; }
         
         /* 针对Word优化的表格样式：中西文分离规范 */
         .report-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; background: white; font-family: "Times New Roman", SimSun, serif;}
@@ -101,8 +101,8 @@
                 
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 shadow-sm" title="若图例文字被遮挡或空白过大，可拖拽此处实时调整图表高度">
-                        <span class="text-xs font-bold text-slate-600">📉 图例预留空间</span>
-                        <input type="range" v-model.number="chartGridBottom" min="10" max="60" class="w-24 accent-blue-600 cursor-ew-resize">
+                        <span class="text-xs font-bold text-slate-600">📉 图表下方留白</span>
+                        <input type="range" v-model.number="chartGridBottom" min="15" max="60" class="w-24 accent-blue-600 cursor-ew-resize">
                         <span class="text-xs font-bold text-blue-600 w-8 text-right">{{ chartGridBottom }}%</span>
                     </div>
 
@@ -455,8 +455,7 @@
             const showOnlyTotalProd = ref(false);
             const showOnlyTotalVal = ref(false);
             
-            // 新增：图表底部预留间距绑定值 (百分比)
-            const chartGridBottom = ref(20);
+            const chartGridBottom = ref(25);
 
             // 中文数字转换逻辑
             const numToChinese = (num) => {
@@ -465,7 +464,7 @@
             };
             const yearCountText = computed(() => numToChinese(years.value.length));
 
-            // 全局精度格式化工具，消除小数点后一长串0的bug，最多保留4位小数
+            // 全局精度格式化工具
             const fmt = (num) => {
                 if (num === null || num === undefined || isNaN(num)) return num;
                 return parseFloat(Number(num).toFixed(4));
@@ -547,12 +546,21 @@
                 const newProducts = [];
                 let currentProd = null;
 
-                // 智能单位处理：统一去掉 /年 后缀
                 const normUnit = (u) => u ? u.replace(/\/年/g, '') : '';
 
                 lines.forEach(line => {
-                    const parts = line.trim().split(/\s+/).filter(p => p !== '');
+                    const lineTrim = line.trim();
+                    if (!lineTrim) return;
+
+                    let isTab = lineTrim.includes('\t');
+                    let parts = isTab ? lineTrim.split('\t').map(s => s.trim()).filter(s => s !== '') : lineTrim.split(/\s+/).filter(p => p !== '');
+                    
                     if (parts.length < 2) return;
+
+                    // 深度容错：过滤表头无用信息
+                    if (parts.some(p => p.includes('指标名称') || p.includes('类别') || p === '产品')) {
+                        return;
+                    }
 
                     let typeIdx = parts.findIndex(p => p === '产量' || p === '产值');
 
@@ -561,19 +569,18 @@
                         let unit = normUnit(parts[typeIdx + 1]);
                         let vals = parts.slice(typeIdx + 2).map(v => {
                             let num = parseFloat(v);
-                            return isNaN(num) ? 0 : num; // 把 '/' 之类的空符号当作 0
+                            return isNaN(num) ? 0 : num; // 把 '/' 等非数字符号视作 0
                         });
                         vals = syncArrayLength(vals, years.value.length);
 
                         if (type === '产量') {
-                            let name = parts.slice(0, typeIdx).join(' ');
+                            let name = parts.slice(0, typeIdx).join(' ').trim();
                             if (name) {
                                 currentProd = { name, unit, values: vals, valValues: Array(years.value.length).fill(0) };
                                 newProducts.push(currentProd);
                             } else if (currentProd) {
-                                // 处理同一个产品多行产量单位的情况（如缸套的空数据行）
                                 if (vals.some(v => v !== 0)) {
-                                    currentProd.unit = unit;
+                                    currentProd.unit = unit || currentProd.unit;
                                     currentProd.values = vals;
                                 }
                             }
@@ -581,30 +588,32 @@
                             currentProd.valValues = vals;
                         }
                     } else {
-                        // 兼容老版本无关键字粘贴法
+                        // 兼容老版本粘贴法
                         if (parts[0].includes('产值') || parts[0].includes('营收')) {
                             macro.value.value.name = parts[0];
-                            macro.value.value.unit = parts[1];
-                            let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
+                            macro.value.value.unit = normUnit(parts[1]);
+                            let vals = parts.slice(2).map(v => parseFloat(v) || 0);
                             macro.value.value.values = syncArrayLength(vals, years.value.length);
                         } else if (parts[0] === '总产量' || parts[0].includes('全厂总产量') || parts[0].includes('合计产量')) {
                             macro.value.totalProd.name = '总产量';
-                            macro.value.totalProd.unit = parts[1];
-                            let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
+                            macro.value.totalProd.unit = normUnit(parts[1]);
+                            let vals = parts.slice(2).map(v => parseFloat(v) || 0);
                             macro.value.totalProd.values = syncArrayLength(vals, years.value.length);
-                        } else if (!['产品', '类别', '单位', '指标名称', '指标'].includes(parts[0])) {
-                            let name = parts[0];
-                            let unit = normUnit(parts[1]);
-                            let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
-                            vals = syncArrayLength(vals, years.value.length);
-                            
-                            let existing = newProducts.find(p => p.name === name);
-                            if (existing) {
-                                existing.unit = unit;
-                                existing.values = vals;
-                            } else {
-                                currentProd = { name, unit, values: vals, valValues: Array(years.value.length).fill(0) };
-                                newProducts.push(currentProd);
+                        } else {
+                            let valStartIndex = Math.max(2, parts.length - years.value.length);
+                            let vals = parts.slice(valStartIndex).map(v => parseFloat(v) || 0);
+                            let unit = normUnit(parts[valStartIndex - 1]);
+                            let name = parts.slice(0, valStartIndex - 1).join(' ').trim();
+
+                            if (name) {
+                                let existing = newProducts.find(p => p.name === name);
+                                if (existing) {
+                                    existing.unit = unit;
+                                    existing.values = syncArrayLength(vals, years.value.length);
+                                } else {
+                                    currentProd = { name, unit, values: syncArrayLength(vals, years.value.length), valValues: Array(years.value.length).fill(0) };
+                                    newProducts.push(currentProd);
+                                }
                             }
                         }
                     }
@@ -801,31 +810,39 @@
                 }
 
                 const baseFont = '"Times New Roman", SimSun, sans-serif';
-                // 核心修改：利用绑定的 chartGridBottom.value 作为百分比留白
-                const commonGrid = { left: '15%', right: '12%', bottom: chartGridBottom.value + '%', top: '20%' };
+                // 启用 containLabel 强防溢出机制
+                const commonGrid = { left: '8%', right: '8%', bottom: chartGridBottom.value + '%', top: '15%', containLabel: true };
                 const cTc = yearCountText.value;
+                // tooltip 添加 confine 防止提示框被浏览器截断
+                const commonTooltip = { trigger: 'axis', confine: true, textStyle: { fontFamily: baseFont } };
 
-                // 渲染产量图表
+                // ================= 产量图表 =================
                 let prodToRender = macro.value.products;
                 if (showOnlyTotalProd.value || macro.value.products.length === 0) {
                     prodToRender = [macro.value.totalProd];
                 }
                 const prodSeries = prodToRender.map(p => ({
-                    name: p.name, type: 'bar', barMaxWidth: 50, data: p.values.map(v => fmt(v)), itemStyle: { borderRadius: [2, 2, 0, 0] }
+                    name: p.name, 
+                    type: 'bar', 
+                    barMaxWidth: 50, 
+                    // 核心防御：即使值为 0 或极小，强制渲染保底的彩色占位柱，确保柱子绝对不会视觉隐形！
+                    barMinHeight: 3, 
+                    data: p.values.map(v => fmt(v)), 
+                    itemStyle: { borderRadius: [2, 2, 0, 0] }
                 }));
 
                 chartObjs.p.setOption({
                     textStyle: { fontFamily: baseFont },
                     title: { text: `企业近${cTc}年产量变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                    tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
+                    tooltip: commonTooltip,
                     grid: commonGrid,
-                    legend: { data: prodToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
+                    legend: { data: prodToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: '产量', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    yAxis: { type: 'value', name: '产量', nameLocation: 'middle', nameRotate: 90, nameGap: 55, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: prodSeries
                 }, true);
 
-                // 渲染产值图表
+                // ================= 产值图表 =================
                 let valToRender = [];
                 if (showOnlyTotalVal.value || macro.value.products.length === 0 || !macro.value.products.some(p => p.valValues && p.valValues.some(v => v > 0))) {
                     valToRender = [{ name: macro.value.value.name, values: macro.value.value.values }];
@@ -836,43 +853,49 @@
                     }));
                 }
                 const valSeries = valToRender.map(p => ({
-                    name: p.name, type: 'bar', barMaxWidth: 50, data: p.values.map(v => fmt(v)), itemStyle: { borderRadius: [2, 2, 0, 0] }
+                    name: p.name, 
+                    type: 'bar', 
+                    barMaxWidth: 50, 
+                    barMinHeight: 3, // 同样强制显示
+                    data: p.values.map(v => fmt(v)), 
+                    itemStyle: { borderRadius: [2, 2, 0, 0] }
                 }));
 
                 chartObjs.v.setOption({
                     textStyle: { fontFamily: baseFont },
                     title: { text: `企业近${cTc}年产值变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                    tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
+                    tooltip: commonTooltip,
                     grid: commonGrid,
-                    legend: { data: valToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
+                    legend: { data: valToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: '产值 (万元)', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    yAxis: { type: 'value', name: '产值 (万元)', nameLocation: 'middle', nameRotate: 90, nameGap: 55, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: valSeries
                 }, true);
                 
+                // ================= 其他图表 =================
                 chartObjs.et.setOption({
                     textStyle: { fontFamily: baseFont },
                     title: { text: '年度综合能耗趋势图', left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                    tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
+                    tooltip: commonTooltip,
                     grid: commonGrid,
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: '吨标煤', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                    series: [{ type: 'bar', barMaxWidth: 50, data: totalEnergyData.value, itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
+                    yAxis: { type: 'value', name: '吨标煤', nameLocation: 'middle', nameRotate: 90, nameGap: 55, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: totalEnergyData.value, itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
                 }, true);
 
                 chartObjs.eu.setOption({
                     textStyle: { fontFamily: baseFont },
                     title: { text: '年度单位产品综合能耗单耗趋势图', left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                    tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
+                    tooltip: commonTooltip,
                     grid: commonGrid,
-                    legend: { bottom: 0, data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
+                    legend: { bottom: 0, width: '100%', data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: [
-                        { type: 'value', name: `吨标煤/${macro.value.totalProd.unit}`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        { type: 'value', name: '吨标煤/万元', nameLocation: 'middle', nameRotate: -90, nameGap: 45, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
+                        { type: 'value', name: `吨标煤/${macro.value.totalProd.unit}`, nameLocation: 'middle', nameRotate: 90, nameGap: 55, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        { type: 'value', name: '吨标煤/万元', nameLocation: 'middle', nameRotate: -90, nameGap: 55, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
                     ],
                     series: [
-                        { name: '单位产品综合能耗', type: 'bar', barMaxWidth: 50, data: unitProductionEnergy.value, itemStyle: { color: '#4472c4' } },
+                        { name: '单位产品综合能耗', type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProductionEnergy.value, itemStyle: { color: '#4472c4' } },
                         { name: '万元产值综合能耗', type: 'line', yAxisIndex: 1, data: unitValueEnergy.value, itemStyle: { color: '#ed7d31' }, lineStyle: { width: 3 }, symbolSize: 8 }
                     ]
                 }, true);
@@ -884,31 +907,31 @@
                     chartObjs.rt.setOption({
                         textStyle: { fontFamily: baseFont },
                         title: { text: `近${cTc}年总${targetRes.name}`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                        tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
+                        tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `${targetRes.name} (${targetRes.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        series: [{ type: 'bar', barMaxWidth: 50, data: targetRes.values.map(v=>fmt(v)), itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
+                        yAxis: { type: 'value', name: `${targetRes.name} (${targetRes.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 55, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: targetRes.values.map(v=>fmt(v)), itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
 
                     chartObjs.rp.setOption({
                         textStyle: { fontFamily: baseFont },
                         title: { text: `单位产量${targetRes.name}`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                        tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
+                        tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `单位产量${targetRes.name} (${targetRes.unit}/${macro.value.totalProd.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        series: [{ type: 'bar', barMaxWidth: 50, data: unitProdResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
+                        yAxis: { type: 'value', name: `单位产量${targetRes.name}\n(${targetRes.unit}/${macro.value.totalProd.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 55, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProdResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
 
                     chartObjs.rv.setOption({
                         textStyle: { fontFamily: baseFont },
                         title: { text: `万元产值${targetRes.name}`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                        tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
+                        tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `万元产值${targetRes.name} (${targetRes.unit}/${macro.value.value.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        series: [{ type: 'bar', barMaxWidth: 50, data: unitValResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
+                        yAxis: { type: 'value', name: `万元产值${targetRes.name}\n(${targetRes.unit}/${macro.value.value.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 55, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitValResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
                 }
             };
@@ -923,7 +946,6 @@
                 a.click();
             };
 
-            // 注意监听器中加入了 chartGridBottom
             watch([macro, materials, energies, resources, years, globalEditMode, showOnlyTotalProd, showOnlyTotalVal, chartGridBottom], () => nextTick(renderAll), { deep: true });
             onMounted(() => { 
                 nextTick(renderAll); 
