@@ -60,7 +60,7 @@
                 <div class="space-y-4">
                     <div>
                         <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">产值与产品产量</div>
-                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-3" placeholder="格式：名称 单位 数值1 数值2... (支持直接输入多产品系统实时汇总)&#10;例如：&#10;氢氧化铝 吨 192.66 343.95 272.74&#10;地巴唑 吨 5.6174 2.922 3.93"></textarea>
+                        <textarea v-model="pasteData.macro" @input="parseMacro" class="input-area w-full p-3" placeholder="支持直接粘贴嵌套格式！&#10;例如：&#10;铸铁件 产量 吨/年 32681.5 32654.0&#10;       产值 万元 46786.7 46587.4"></textarea>
                     </div>
                     <div>
                         <div class="text-xs font-bold text-slate-500 mb-1.5 uppercase">原辅材料消耗总量</div>
@@ -122,23 +122,37 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(prod, idx) in macro.products" :key="'tp'+idx">
-                                <td>
-                                    <input v-if="globalEditMode" v-model="prod.name" class="table-input text-bold">
-                                    <span v-else>{{ prod.name }}</span>
-                                </td>
-                                <td>
-                                    <input v-if="globalEditMode" v-model="prod.unit" class="table-input">
-                                    <span v-else>{{ prod.unit }}</span>
-                                </td>
-                                <td v-for="(val, vIdx) in prod.values" :key="'v'+vIdx">
-                                    <input v-if="globalEditMode" v-model.number="prod.values[vIdx]" type="number" class="table-input text-red">
-                                    <span v-else>{{ fmt(prod.values[vIdx]) }}</span>
-                                </td>
-                                <td v-if="globalEditMode" class="bg-red-50">
-                                    <button @click="macro.products.splice(idx, 1)" class="text-red-500 hover:text-red-700 font-bold text-xs p-1">删除</button>
-                                </td>
-                            </tr>
+                            <template v-for="(prod, idx) in macro.products" :key="'tp'+idx">
+                                <tr>
+                                    <td :rowspan="(prod.valValues && prod.valValues.some(v => v > 0)) || globalEditMode ? 2 : 1">
+                                        <input v-if="globalEditMode" v-model="prod.name" class="table-input text-bold">
+                                        <span v-else>{{ prod.name }}</span>
+                                    </td>
+                                    <td>
+                                        <span v-if="(prod.valValues && prod.valValues.some(v => v > 0)) || globalEditMode" class="text-xs text-slate-500 mr-1 block sm:inline">产量</span>
+                                        <input v-if="globalEditMode" v-model="prod.unit" class="table-input w-12 sm:w-auto inline-block">
+                                        <span v-else>{{ prod.unit }}</span>
+                                    </td>
+                                    <td v-for="(val, vIdx) in prod.values" :key="'v'+vIdx">
+                                        <input v-if="globalEditMode" v-model.number="prod.values[vIdx]" type="number" class="table-input text-red">
+                                        <span v-else>{{ fmt(prod.values[vIdx]) }}</span>
+                                    </td>
+                                    <td v-if="globalEditMode" class="bg-red-50" :rowspan="2">
+                                        <button @click="macro.products.splice(idx, 1)" class="text-red-500 hover:text-red-700 font-bold text-xs p-1">删除</button>
+                                    </td>
+                                </tr>
+                                <tr v-if="(prod.valValues && prod.valValues.some(v => v > 0)) || globalEditMode">
+                                    <td class="bg-slate-50">
+                                        <span class="text-xs text-slate-500 mr-1 block sm:inline">产值</span>
+                                        <span class="text-xs">万元</span>
+                                    </td>
+                                    <td v-for="(vVal, vIdx) in (prod.valValues || [])" :key="'vv'+vIdx" class="bg-slate-50">
+                                        <input v-if="globalEditMode" v-model.number="prod.valValues[vIdx]" type="number" class="table-input text-blue-600">
+                                        <span v-else class="text-blue-600 font-semibold">{{ fmt(prod.valValues[vIdx]) }}</span>
+                                    </td>
+                                </tr>
+                            </template>
+
                             <tr v-if="globalEditMode">
                                 <td :colspan="years.length + 3" class="text-center py-2 bg-white">
                                     <button @click="addNewProduct" class="text-sm border border-dashed border-blue-400 text-blue-600 font-semibold py-1 px-4 rounded hover:bg-blue-100 transition">➕ 插入新产品参与汇总</button>
@@ -174,7 +188,7 @@
                                     <input v-if="globalEditMode" v-model.number="macro.value.values[vIdx]" type="number" class="table-input text-red">
                                     <span v-else>{{ fmt(macro.value.values[vIdx]) }}</span>
                                 </td>
-                                <td v-if="globalEditMode" class="bg-slate-50 text-xs text-slate-400">手动输入</td>
+                                <td v-if="globalEditMode" class="bg-slate-50 text-xs text-slate-400">自动/手动</td>
                             </tr>
                         </tbody>
                     </table>
@@ -192,10 +206,15 @@
                         </div>
                         <div id="chartProd" class="chart-container mt-6"></div>
                     </div>
-                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
-                        <button @click="downloadChart('v', `企业近${yearCountText}年产值变化`)" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
-                            📥 导出图表
-                        </button>
+                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100 flex flex-col">
+                        <div class="flex justify-between items-center mb-2 px-2 absolute top-2 left-2 right-2 z-10">
+                            <label class="text-xs font-semibold text-slate-600 flex items-center bg-white px-2 py-1 border rounded shadow-sm cursor-pointer hover:bg-slate-100">
+                                <input type="checkbox" v-model="showOnlyTotalVal" class="mr-1.5"> 仅显示总计项
+                            </label>
+                            <button @click="downloadChart('v', `企业近${yearCountText}年产值变化`)" class="bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                                📥 导出图表
+                            </button>
+                        </div>
                         <div id="chartVal" class="chart-container mt-6"></div>
                     </div>
                 </div>
@@ -414,12 +433,13 @@
 
     createApp({
         setup() {
-            const years = ref(['2020', '2021', '2022']);
+            const years = ref(['2023', '2024', '2025']);
             const pasteData = ref({ macro: '', materials: '', energy: '', resources: '' });
             
             const globalEditMode = ref(false);
             const highlightTop5 = ref(false);
             const showOnlyTotalProd = ref(false);
+            const showOnlyTotalVal = ref(false);
 
             // 中文数字转换逻辑
             const numToChinese = (num) => {
@@ -449,7 +469,7 @@
                 return arr;
             };
 
-            const addNewProduct = () => macro.value.products.push({ name: '新产品', unit: '吨', values: Array(years.value.length).fill(0) });
+            const addNewProduct = () => macro.value.products.push({ name: '新产品', unit: '吨', values: Array(years.value.length).fill(0), valValues: Array(years.value.length).fill(0) });
             const addNewMaterial = () => materials.value.push({ name: '新材料', product: macro.value.products[0]?.name || macro.value.totalProd.name, unit: '吨', values: Array(years.value.length).fill(0) });
             const addNewEnergy = () => energies.value.push({ name: '新能源', unit: '单位', factor: 1.0000, values: Array(years.value.length).fill(0) });
             const addNewResource = () => resources.value.push({ name: '水耗', unit: '立方米', values: Array(years.value.length).fill(0) });
@@ -457,7 +477,11 @@
             const addYear = () => {
                 const lastYear = parseInt(years.value[years.value.length - 1] || new Date().getFullYear());
                 years.value.push((lastYear + 1).toString());
-                macro.value.products.forEach(p => p.values.push(0));
+                macro.value.products.forEach(p => {
+                    p.values.push(0);
+                    if (!p.valValues) p.valValues = [];
+                    p.valValues.push(0);
+                });
                 macro.value.totalProd.values.push(0);
                 macro.value.value.values.push(0);
                 materials.value.forEach(m => m.values.push(0));
@@ -468,7 +492,10 @@
             const removeYear = () => {
                 if(years.value.length > 1) {
                     years.value.pop();
-                    macro.value.products.forEach(p => p.values.pop());
+                    macro.value.products.forEach(p => {
+                        p.values.pop();
+                        if (p.valValues) p.valValues.pop();
+                    });
                     macro.value.totalProd.values.pop();
                     macro.value.value.values.pop();
                     materials.value.forEach(m => m.values.pop());
@@ -481,9 +508,18 @@
                 if (newProds.length > 0) {
                     macro.value.totalProd.unit = newProds[0].unit || '吨';
                     for (let i = 0; i < years.value.length; i++) {
-                        let sum = 0;
-                        newProds.forEach(p => { sum += (Number(p.values[i]) || 0); });
-                        macro.value.totalProd.values[i] = parseFloat(sum.toFixed(4));
+                        let sumProd = 0;
+                        let sumVal = 0;
+                        let hasVal = false;
+                        newProds.forEach(p => { 
+                            sumProd += (Number(p.values[i]) || 0); 
+                            if (p.valValues && p.valValues[i] > 0) hasVal = true;
+                            sumVal += (Number(p.valValues ? p.valValues[i] : 0) || 0);
+                        });
+                        macro.value.totalProd.values[i] = parseFloat(sumProd.toFixed(4));
+                        if (hasVal) {
+                            macro.value.value.values[i] = parseFloat(sumVal.toFixed(4));
+                        }
                     }
                 }
             }, { deep: true });
@@ -492,27 +528,74 @@
                 if (!pasteData.value.macro.trim()) return;
                 const lines = pasteData.value.macro.trim().split('\n');
                 const newProducts = [];
-                
+                let currentProd = null;
+
+                // 智能单位处理：统一去掉 /年 后缀
+                const normUnit = (u) => u ? u.replace(/\/年/g, '') : '';
+
                 lines.forEach(line => {
-                    const parts = line.trim().split(/\s+/);
-                    if (parts.length >= 3) {
-                        let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
+                    const parts = line.trim().split(/\s+/).filter(p => p !== '');
+                    if (parts.length < 2) return;
+
+                    let typeIdx = parts.findIndex(p => p === '产量' || p === '产值');
+
+                    if (typeIdx !== -1) {
+                        let type = parts[typeIdx];
+                        let unit = normUnit(parts[typeIdx + 1]);
+                        let vals = parts.slice(typeIdx + 2).map(v => {
+                            let num = parseFloat(v);
+                            return isNaN(num) ? 0 : num; // 把 '/' 之类的空符号当作 0
+                        });
                         vals = syncArrayLength(vals, years.value.length);
 
+                        if (type === '产量') {
+                            let name = parts.slice(0, typeIdx).join(' ');
+                            if (name) {
+                                currentProd = { name, unit, values: vals, valValues: Array(years.value.length).fill(0) };
+                                newProducts.push(currentProd);
+                            } else if (currentProd) {
+                                // 处理同一个产品多行产量单位的情况（如缸套的空数据行）
+                                if (vals.some(v => v !== 0)) {
+                                    currentProd.unit = unit;
+                                    currentProd.values = vals;
+                                }
+                            }
+                        } else if (type === '产值' && currentProd) {
+                            currentProd.valValues = vals;
+                        }
+                    } else {
+                        // 兼容老版本无关键字粘贴法
                         if (parts[0].includes('产值') || parts[0].includes('营收')) {
                             macro.value.value.name = parts[0];
                             macro.value.value.unit = parts[1];
-                            macro.value.value.values = vals;
-                        } else if (parts[0] === '总产量' || parts[0] === '全厂总产量' || parts[0] === '合计产量') {
+                            let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
+                            macro.value.value.values = syncArrayLength(vals, years.value.length);
+                        } else if (parts[0] === '总产量' || parts[0].includes('全厂总产量') || parts[0].includes('合计产量')) {
                             macro.value.totalProd.name = '总产量';
                             macro.value.totalProd.unit = parts[1];
-                            macro.value.totalProd.values = vals;
-                        } else {
-                            newProducts.push({ name: parts[0], unit: parts[1], values: vals });
+                            let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
+                            macro.value.totalProd.values = syncArrayLength(vals, years.value.length);
+                        } else if (!['产品', '类别', '单位'].includes(parts[0])) {
+                            let name = parts[0];
+                            let unit = normUnit(parts[1]);
+                            let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
+                            vals = syncArrayLength(vals, years.value.length);
+                            
+                            let existing = newProducts.find(p => p.name === name);
+                            if (existing) {
+                                existing.unit = unit;
+                                existing.values = vals;
+                            } else {
+                                currentProd = { name, unit, values: vals, valValues: Array(years.value.length).fill(0) };
+                                newProducts.push(currentProd);
+                            }
                         }
                     }
                 });
-                macro.value.products = newProducts;
+                
+                if (newProducts.length > 0) {
+                    macro.value.products = newProducts;
+                }
             };
             
             const parseMaterials = () => {
@@ -700,12 +783,11 @@
                     if (!chartObjs.rv) chartObjs.rv = echarts.init(document.getElementById('chartRUnitVal'));
                 }
 
-                // 全局控制中西文字体
                 const baseFont = '"Times New Roman", SimSun, sans-serif';
-                // 网格间距给纵坐标留足左侧空间
                 const commonGrid = { left: '15%', right: '12%', bottom: '15%', top: '20%' };
                 const cTc = yearCountText.value;
 
+                // 渲染产量图表
                 let prodToRender = macro.value.products;
                 if (showOnlyTotalProd.value || macro.value.products.length === 0) {
                     prodToRender = [macro.value.totalProd];
@@ -725,14 +807,30 @@
                     series: prodSeries
                 }, true);
 
+                // 渲染产值图表 (支持明细切换)
+                let valToRender = [];
+                // 如果勾选仅看总计、没有产品、或者没有解析出任何明细产值数据，则只展示总产值
+                if (showOnlyTotalVal.value || macro.value.products.length === 0 || !macro.value.products.some(p => p.valValues && p.valValues.some(v => v > 0))) {
+                    valToRender = [{ name: macro.value.value.name, values: macro.value.value.values }];
+                } else {
+                    valToRender = macro.value.products.map(p => ({
+                        name: p.name,
+                        values: p.valValues || Array(years.value.length).fill(0)
+                    }));
+                }
+                const valSeries = valToRender.map(p => ({
+                    name: p.name, type: 'bar', barMaxWidth: 50, data: p.values.map(v => fmt(v)), itemStyle: { borderRadius: [2, 2, 0, 0] }
+                }));
+
                 chartObjs.v.setOption({
                     textStyle: { fontFamily: baseFont },
                     title: { text: `企业近${cTc}年产值变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
                     grid: commonGrid,
+                    legend: { data: valToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: macro.value.value.name + '/' + macro.value.value.unit, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                    series: [{ type: 'bar', barMaxWidth: 50, data: macro.value.value.values.map(v => fmt(v)), itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
+                    yAxis: { type: 'value', name: '产值 (万元)', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    series: valSeries
                 }, true);
                 
                 chartObjs.et.setOption({
@@ -808,7 +906,7 @@
                 a.click();
             };
 
-            watch([macro, materials, energies, resources, years, globalEditMode, showOnlyTotalProd], () => nextTick(renderAll), { deep: true });
+            watch([macro, materials, energies, resources, years, globalEditMode, showOnlyTotalProd, showOnlyTotalVal], () => nextTick(renderAll), { deep: true });
             onMounted(() => { 
                 nextTick(renderAll); 
                 window.addEventListener('resize', () => Object.values(chartObjs).forEach(c => c && c.resize())); 
@@ -822,7 +920,7 @@
                 calculateMaterialUnit, totalEnergyData, unitProductionEnergy, unitValueEnergy,
                 unitProdResources, unitValResources,
                 getProductUnit, fmt,
-                highlightTop5, getRankStyle, getRankBadge, showOnlyTotalProd,
+                highlightTop5, getRankStyle, getRankBadge, showOnlyTotalProd, showOnlyTotalVal,
                 downloadChart
             };
         }
