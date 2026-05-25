@@ -112,7 +112,8 @@
                     <table class="report-table">
                         <thead>
                             <tr>
-                                <th rowspan="2">指标名称</th>
+                                <th rowspan="2">产品</th>
+                                <th rowspan="2">类别</th>
                                 <th rowspan="2">单位</th>
                                 <th :colspan="years.length">近{{ yearCountText }}年情况</th>
                                 <th v-if="globalEditMode" rowspan="2" class="w-16 bg-red-50 text-red-600">操作</th>
@@ -129,8 +130,10 @@
                                         <span v-else>{{ prod.name }}</span>
                                     </td>
                                     <td>
-                                        <span v-if="(prod.valValues && prod.valValues.some(v => v > 0)) || globalEditMode" class="text-xs text-slate-500 mr-1 block sm:inline">产量</span>
-                                        <input v-if="globalEditMode" v-model="prod.unit" class="table-input w-12 sm:w-auto inline-block">
+                                        <span class="text-slate-700">产量</span>
+                                    </td>
+                                    <td>
+                                        <input v-if="globalEditMode" v-model="prod.unit" class="table-input w-16">
                                         <span v-else>{{ prod.unit }}</span>
                                     </td>
                                     <td v-for="(val, vIdx) in prod.values" :key="'v'+vIdx">
@@ -143,8 +146,10 @@
                                 </tr>
                                 <tr v-if="(prod.valValues && prod.valValues.some(v => v > 0)) || globalEditMode">
                                     <td class="bg-slate-50">
-                                        <span class="text-xs text-slate-500 mr-1 block sm:inline">产值</span>
-                                        <span class="text-xs">万元</span>
+                                        <span class="text-slate-700">产值</span>
+                                    </td>
+                                    <td class="bg-slate-50">
+                                        <span>万元</span>
                                     </td>
                                     <td v-for="(vVal, vIdx) in (prod.valValues || [])" :key="'vv'+vIdx" class="bg-slate-50">
                                         <input v-if="globalEditMode" v-model.number="prod.valValues[vIdx]" type="number" class="table-input text-blue-600">
@@ -154,12 +159,13 @@
                             </template>
 
                             <tr v-if="globalEditMode">
-                                <td :colspan="years.length + 3" class="text-center py-2 bg-white">
+                                <td :colspan="years.length + 4" class="text-center py-2 bg-white">
                                     <button @click="addNewProduct" class="text-sm border border-dashed border-blue-400 text-blue-600 font-semibold py-1 px-4 rounded hover:bg-blue-100 transition">➕ 插入新产品参与汇总</button>
                                 </td>
                             </tr>
                             
                             <tr style="background-color: #f8fafc;" class="font-bold">
+                                <td rowspan="2">全厂合计</td>
                                 <td>
                                     <input v-if="globalEditMode" v-model="macro.totalProd.name" class="table-input text-bold">
                                     <span v-else>{{ macro.totalProd.name }}</span>
@@ -172,7 +178,7 @@
                                     <input v-if="globalEditMode" v-model.number="macro.totalProd.values[vIdx]" type="number" class="table-input text-red">
                                     <span v-else class="text-blue-700">{{ fmt(macro.totalProd.values[vIdx]) }}</span>
                                 </td>
-                                <td v-if="globalEditMode" class="bg-slate-50 text-xs text-slate-400">自动/手动</td>
+                                <td v-if="globalEditMode" class="bg-slate-50 text-xs text-slate-400" rowspan="2">自动/手动</td>
                             </tr>
                             
                             <tr style="background-color: #f8fafc;" class="font-bold">
@@ -186,9 +192,8 @@
                                 </td>
                                 <td v-for="(val, vIdx) in macro.value.values" :key="'val'+vIdx">
                                     <input v-if="globalEditMode" v-model.number="macro.value.values[vIdx]" type="number" class="table-input text-red">
-                                    <span v-else>{{ fmt(macro.value.values[vIdx]) }}</span>
+                                    <span v-else class="text-blue-700">{{ fmt(macro.value.values[vIdx]) }}</span>
                                 </td>
-                                <td v-if="globalEditMode" class="bg-slate-50 text-xs text-slate-400">自动/手动</td>
                             </tr>
                         </tbody>
                     </table>
@@ -575,7 +580,7 @@
                             macro.value.totalProd.unit = parts[1];
                             let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
                             macro.value.totalProd.values = syncArrayLength(vals, years.value.length);
-                        } else if (!['产品', '类别', '单位'].includes(parts[0])) {
+                        } else if (!['产品', '类别', '单位', '指标名称', '指标'].includes(parts[0])) {
                             let name = parts[0];
                             let unit = normUnit(parts[1]);
                             let vals = parts.slice(2).map(v => parseFloat(v) || 0).slice(0, years.value.length);
@@ -784,7 +789,8 @@
                 }
 
                 const baseFont = '"Times New Roman", SimSun, sans-serif';
-                const commonGrid = { left: '15%', right: '12%', bottom: '15%', top: '20%' };
+                // 增大 bottom 值（原为15%，现调整为 28%），为过长的图例名称预留足够空间防止遮挡 X 轴标签
+                const commonGrid = { left: '15%', right: '12%', bottom: '28%', top: '20%' };
                 const cTc = yearCountText.value;
 
                 // 渲染产量图表
@@ -801,7 +807,8 @@
                     title: { text: `企业近${cTc}年产量变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
                     grid: commonGrid,
-                    legend: { data: prodToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
+                    // 增加 type: 'scroll' 应对多图例和长文本的情况
+                    legend: { type: 'scroll', data: prodToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: { type: 'value', name: '产量', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: prodSeries
@@ -809,7 +816,6 @@
 
                 // 渲染产值图表 (支持明细切换)
                 let valToRender = [];
-                // 如果勾选仅看总计、没有产品、或者没有解析出任何明细产值数据，则只展示总产值
                 if (showOnlyTotalVal.value || macro.value.products.length === 0 || !macro.value.products.some(p => p.valValues && p.valValues.some(v => v > 0))) {
                     valToRender = [{ name: macro.value.value.name, values: macro.value.value.values }];
                 } else {
@@ -827,7 +833,8 @@
                     title: { text: `企业近${cTc}年产值变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
                     grid: commonGrid,
-                    legend: { data: valToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
+                    // 增加 type: 'scroll'
+                    legend: { type: 'scroll', data: valToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: { type: 'value', name: '产值 (万元)', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: valSeries
@@ -848,7 +855,7 @@
                     title: { text: '年度单位产品综合能耗单耗趋势图', left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
                     grid: commonGrid,
-                    legend: { bottom: 0, data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
+                    legend: { type: 'scroll', bottom: 0, data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: [
                         { type: 'value', name: `吨标煤/${macro.value.totalProd.unit}`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
