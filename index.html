@@ -9,7 +9,6 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #334155; }
-        /* 增加图表整体高度，为多行文字图例腾出物理空间 */
         .chart-container { height: 400px; width: 100%; }
         
         /* 针对Word优化的表格样式：中西文分离规范 */
@@ -91,17 +90,26 @@
 
         <div class="lg:col-span-8 space-y-6">
             
-            <div class="bg-white p-4 rounded-lg border border-blue-200 shadow-sm flex justify-between items-center sticky top-4 z-50">
+            <div class="bg-white p-4 rounded-lg border border-blue-200 shadow-sm flex flex-wrap justify-between items-center sticky top-4 z-50 gap-4">
                 <div class="flex items-center space-x-4">
                     <button @click="globalEditMode = !globalEditMode" :class="globalEditMode ? 'bg-blue-600 text-white shadow-md' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'" class="px-6 py-2 rounded-md font-bold transition flex items-center">
                         <span v-if="globalEditMode">💾 保存并退出编辑</span>
                         <span v-else>📝 开启全局表格编辑</span>
                     </button>
-                    <span v-if="globalEditMode" class="text-sm text-blue-600 font-semibold animate-pulse">正在编辑模式，所有单元格均可修改...</span>
+                    <span v-if="globalEditMode" class="text-sm text-blue-600 font-semibold animate-pulse">正在编辑模式...</span>
                 </div>
-                <button @click="highlightTop5 = !highlightTop5" :class="highlightTop5 ? 'bg-red-100 text-red-700 border-red-300' : 'bg-slate-50 text-slate-600 border-slate-200'" class="border px-4 py-2 rounded-md text-sm font-semibold shadow-sm transition flex items-center">
-                    🔥 {{ highlightTop5 ? '关闭单耗预警' : '标出单耗Top 5' }}
-                </button>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 shadow-sm" title="若图例文字被遮挡或空白过大，可拖拽此处实时调整图表高度">
+                        <span class="text-xs font-bold text-slate-600">📉 图例预留空间</span>
+                        <input type="range" v-model.number="chartGridBottom" min="10" max="60" class="w-24 accent-blue-600 cursor-ew-resize">
+                        <span class="text-xs font-bold text-blue-600 w-8 text-right">{{ chartGridBottom }}%</span>
+                    </div>
+
+                    <button @click="highlightTop5 = !highlightTop5" :class="highlightTop5 ? 'bg-red-100 text-red-700 border-red-300' : 'bg-slate-50 text-slate-600 border-slate-200'" class="border px-4 py-2 rounded-md text-sm font-semibold shadow-sm transition flex items-center">
+                        🔥 {{ highlightTop5 ? '关闭单耗预警' : '标出单耗Top 5' }}
+                    </button>
+                </div>
             </div>
 
             <div class="section-card">
@@ -446,6 +454,9 @@
             const highlightTop5 = ref(false);
             const showOnlyTotalProd = ref(false);
             const showOnlyTotalVal = ref(false);
+            
+            // 新增：图表底部预留间距绑定值 (百分比)
+            const chartGridBottom = ref(20);
 
             // 中文数字转换逻辑
             const numToChinese = (num) => {
@@ -790,8 +801,8 @@
                 }
 
                 const baseFont = '"Times New Roman", SimSun, sans-serif';
-                // 增大 bottom 值到 35%，为取消滚动的多行图例腾出足够物理空间
-                const commonGrid = { left: '15%', right: '12%', bottom: '35%', top: '20%' };
+                // 核心修改：利用绑定的 chartGridBottom.value 作为百分比留白
+                const commonGrid = { left: '15%', right: '12%', bottom: chartGridBottom.value + '%', top: '20%' };
                 const cTc = yearCountText.value;
 
                 // 渲染产量图表
@@ -808,7 +819,6 @@
                     title: { text: `企业近${cTc}年产量变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
                     grid: commonGrid,
-                    // 取消了 type: 'scroll'，让 ECharts 自然换行排列
                     legend: { data: prodToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: { type: 'value', name: '产量', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
@@ -834,7 +844,6 @@
                     title: { text: `企业近${cTc}年产值变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
                     grid: commonGrid,
-                    // 取消了 type: 'scroll'
                     legend: { data: valToRender.map(p => p.name), bottom: 0, textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: { type: 'value', name: '产值 (万元)', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
@@ -856,7 +865,6 @@
                     title: { text: '年度单位产品综合能耗单耗趋势图', left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: { trigger: 'axis', textStyle: { fontFamily: baseFont } },
                     grid: commonGrid,
-                    // 取消了 type: 'scroll'
                     legend: { bottom: 0, data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: [
@@ -915,7 +923,8 @@
                 a.click();
             };
 
-            watch([macro, materials, energies, resources, years, globalEditMode, showOnlyTotalProd, showOnlyTotalVal], () => nextTick(renderAll), { deep: true });
+            // 注意监听器中加入了 chartGridBottom
+            watch([macro, materials, energies, resources, years, globalEditMode, showOnlyTotalProd, showOnlyTotalVal, chartGridBottom], () => nextTick(renderAll), { deep: true });
             onMounted(() => { 
                 nextTick(renderAll); 
                 window.addEventListener('resize', () => Object.values(chartObjs).forEach(c => c && c.resize())); 
@@ -928,7 +937,7 @@
                 globalEditMode, addNewProduct, addNewMaterial, addNewEnergy, addNewResource,
                 calculateMaterialUnit, totalEnergyData, unitProductionEnergy, unitValueEnergy,
                 unitProdResources, unitValResources,
-                getProductUnit, fmt,
+                getProductUnit, fmt, chartGridBottom,
                 highlightTop5, getRankStyle, getRankBadge, showOnlyTotalProd, showOnlyTotalVal,
                 downloadChart
             };
