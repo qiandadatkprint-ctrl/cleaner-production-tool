@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>产值产量/能资源消耗数据工作台</title>
+    <title>清洁生产审核 - 智能数据工作台</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -102,7 +102,7 @@
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 shadow-sm" title="若图例文字被遮挡或空白过大，可拖拽此处实时调整图表高度">
                         <span class="text-xs font-bold text-slate-600">📉 图表下方留白</span>
-                        <input type="range" v-model.number="chartGridBottom" min="15" max="60" class="w-24 accent-blue-600 cursor-ew-resize">
+                        <input type="range" v-model.number="chartGridBottom" min="5" max="35" class="w-24 accent-blue-600 cursor-ew-resize">
                         <span class="text-xs font-bold text-blue-600 w-8 text-right">{{ chartGridBottom }}%</span>
                     </div>
 
@@ -449,7 +449,8 @@
             const showOnlyTotalProd = ref(false);
             const showOnlyTotalVal = ref(false);
             
-            const chartGridBottom = ref(25);
+            // 【调整1】大幅降低留白默认值至 12%，让横坐标与底部图例间距更紧凑
+            const chartGridBottom = ref(12);
 
             // 中文数字转换逻辑
             const numToChinese = (num) => {
@@ -799,12 +800,12 @@
                 if (!chartObjs.eu) chartObjs.eu = echarts.init(document.getElementById('chartEUnit'));
                 if (resources.value.length > 0) {
                     if (!chartObjs.rt) chartObjs.rt = echarts.init(document.getElementById('chartRTotal'));
-                    // 将原来的两个单耗图改为一个综合体单耗图 (chartRU)
                     if (!chartObjs.ru) chartObjs.ru = echarts.init(document.getElementById('chartRUnit'));
                 }
 
                 const baseFont = '"Times New Roman", SimSun, sans-serif';
-                const commonGrid = { left: 40, right: 40, bottom: chartGridBottom.value + '%', top: '15%', containLabel: true };
+                // 【调整2】略微拓宽左右安全间距到 45，确保任何长度和旋转方向的纵坐标都能完整显示
+                const commonGrid = { left: 45, right: 45, bottom: chartGridBottom.value + '%', top: '15%', containLabel: true };
                 const cTc = yearCountText.value;
                 const commonTooltip = { trigger: 'axis', confine: true, textStyle: { fontFamily: baseFont } };
 
@@ -827,10 +828,10 @@
                     title: { text: `企业近${cTc}年产量变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: commonTooltip,
                     grid: commonGrid,
-                    legend: { data: prodToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
+                    legend: { data: prodToRender.map(p => p.name), bottom: '0%', width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    // 完全去除了换行符和括号，仅保留单位名称
-                    yAxis: { type: 'value', name: macro.value.totalProd.unit || '吨', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    // 【调整3】名称显式加上产量和单位组合
+                    yAxis: { type: 'value', name: `产量/${macro.value.totalProd.unit || '吨'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: prodSeries
                 }, true);
 
@@ -858,9 +859,10 @@
                     title: { text: `企业近${cTc}年产值变化`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: commonTooltip,
                     grid: commonGrid,
-                    legend: { data: valToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
+                    legend: { data: valToRender.map(p => p.name), bottom: '0%', width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: macro.value.value.unit || '万元', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    // 【调整4】名称显式加上产值和单位组合
+                    yAxis: { type: 'value', name: `产值/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: valSeries
                 }, true);
                 
@@ -871,7 +873,8 @@
                     tooltip: commonTooltip,
                     grid: commonGrid,
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: '吨标煤', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    // 【调整5】名称统一加上前缀
+                    yAxis: { type: 'value', name: '综合能耗/吨标煤', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: totalEnergyData.value, itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
                 }, true);
 
@@ -880,11 +883,12 @@
                     title: { text: '年度单位产品综合能耗单耗趋势图', left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: commonTooltip,
                     grid: commonGrid,
-                    legend: { bottom: 0, width: '100%', data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
+                    legend: { bottom: '0%', width: '100%', data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                     yAxis: [
                         { type: 'value', name: `吨标煤/${macro.value.totalProd.unit || '吨'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        { type: 'value', name: `吨标煤/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: -90, nameGap: 40, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
+                        // 【调整6】右侧纵轴旋转方向统一为 90 (逆时针)
+                        { type: 'value', name: `吨标煤/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
                     ],
                     series: [
                         { name: '单位产品综合能耗', type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProductionEnergy.value, itemStyle: { color: '#4472c4' } },
@@ -897,28 +901,28 @@
                     const resColor = '#f8c291';
                     const targetRes = resources.value[0]; 
                     
-                    // 1. 年度总消耗柱状图
                     chartObjs.rt.setOption({
                         textStyle: { fontFamily: baseFont },
                         title: { text: `近${cTc}年总${targetRes.name}`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                         tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: targetRes.unit, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        // 【调整7】名称统一为 总名称/单位 格式
+                        yAxis: { type: 'value', name: `总${targetRes.name}/${targetRes.unit}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                         series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: targetRes.values.map(v=>fmt(v)), itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
 
-                    // 2. 组合单耗图（柱状+折线双轴）
                     chartObjs.ru.setOption({
                         textStyle: { fontFamily: baseFont },
                         title: { text: `年度${targetRes.name}单耗`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                         tooltip: commonTooltip,
                         grid: commonGrid,
-                        legend: { bottom: 0, width: '100%', data: [`单位产品综合${targetRes.name}`, `万元产值综合${targetRes.name}`], textStyle: { fontFamily: baseFont } },
+                        legend: { bottom: '0%', width: '100%', data: [`单位产品综合${targetRes.name}`, `万元产值综合${targetRes.name}`], textStyle: { fontFamily: baseFont } },
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
                         yAxis: [
                             { type: 'value', name: `${targetRes.unit}/${macro.value.totalProd.unit || '吨'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                            { type: 'value', name: `${targetRes.unit}/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: -90, nameGap: 40, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
+                            // 【调整8】右侧纵轴旋转方向统一为 90 (逆时针)
+                            { type: 'value', name: `${targetRes.unit}/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
                         ],
                         series: [
                             { name: `单位产品综合${targetRes.name}`, type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProdResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } },
