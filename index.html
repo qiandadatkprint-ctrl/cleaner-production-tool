@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>产值产量/能资源消耗工作台</title>
+    <title>产值产量/能资源消耗数据工作台</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -418,22 +418,16 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6" v-show="resources.length > 0">
                     <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
-                        <button @click="downloadChart('rt', `近${yearCountText}年总资源消耗`)" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                        <button @click="downloadChart('rt', `近${yearCountText}年总${resources[0] ? resources[0].name : '资源'}`)" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
                             📥 导出图表
                         </button>
                         <div id="chartRTotal" class="chart-container mt-6"></div>
                     </div>
                     <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
-                        <button @click="downloadChart('rp', '单位产量资源消耗')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
+                        <button @click="downloadChart('ru', `年度${resources[0] ? resources[0].name : '资源'}单耗`)" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
                             📥 导出图表
                         </button>
-                        <div id="chartRUnitProd" class="chart-container mt-6"></div>
-                    </div>
-                    <div class="relative bg-slate-50 rounded-lg p-2 border border-slate-100">
-                        <button @click="downloadChart('rv', '万元产值资源消耗')" class="absolute top-2 right-2 z-10 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-semibold shadow-sm hover:bg-blue-50 hover:text-blue-600 transition flex items-center">
-                            📥 导出图表
-                        </button>
-                        <div id="chartRUnitVal" class="chart-container mt-6"></div>
+                        <div id="chartRUnit" class="chart-container mt-6"></div>
                     </div>
                 </div>
 
@@ -805,15 +799,11 @@
                 if (!chartObjs.eu) chartObjs.eu = echarts.init(document.getElementById('chartEUnit'));
                 if (resources.value.length > 0) {
                     if (!chartObjs.rt) chartObjs.rt = echarts.init(document.getElementById('chartRTotal'));
-                    if (!chartObjs.rp) chartObjs.rp = echarts.init(document.getElementById('chartRUnitProd'));
-                    if (!chartObjs.rv) chartObjs.rv = echarts.init(document.getElementById('chartRUnitVal'));
+                    // 将原来的两个单耗图改为一个综合体单耗图 (chartRU)
+                    if (!chartObjs.ru) chartObjs.ru = echarts.init(document.getElementById('chartRUnit'));
                 }
 
                 const baseFont = '"Times New Roman", SimSun, sans-serif';
-                
-                // 【核心修正】：将边距(left, right)调为等于nameGap的值(40)。
-                // 原理：Echarts中 containLabel: true 包含了数字的宽度。
-                // 此时只需要给 grid 设置足以容纳 nameGap（纵轴文字到轴的距离）的像素大小，就能保证纵轴标题刚好不被切掉，同时把最大空间留给图表。
                 const commonGrid = { left: 40, right: 40, bottom: chartGridBottom.value + '%', top: '15%', containLabel: true };
                 const cTc = yearCountText.value;
                 const commonTooltip = { trigger: 'axis', confine: true, textStyle: { fontFamily: baseFont } };
@@ -839,8 +829,8 @@
                     grid: commonGrid,
                     legend: { data: prodToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    // 将 nameGap 也统一设置为 40
-                    yAxis: { type: 'value', name: `产量 (${macro.value.totalProd.unit || '吨'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    // 完全去除了换行符和括号，仅保留单位名称
+                    yAxis: { type: 'value', name: macro.value.totalProd.unit || '吨', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: prodSeries
                 }, true);
 
@@ -870,18 +860,18 @@
                     grid: commonGrid,
                     legend: { data: valToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: `产值 (${macro.value.value.unit || '万元'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    yAxis: { type: 'value', name: macro.value.value.unit || '万元', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: valSeries
                 }, true);
                 
-                // ================= 其他图表 =================
+                // ================= 综合能耗图表 =================
                 chartObjs.et.setOption({
                     textStyle: { fontFamily: baseFont },
                     title: { text: '年度综合能耗趋势图', left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                     tooltip: commonTooltip,
                     grid: commonGrid,
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: '综合能耗 (吨标煤)', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    yAxis: { type: 'value', name: '吨标煤', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: totalEnergyData.value, itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
                 }, true);
 
@@ -902,38 +892,38 @@
                     ]
                 }, true);
 
+                // ================= 资源消耗图表 =================
                 if (resources.value.length > 0) {
                     const resColor = '#f8c291';
                     const targetRes = resources.value[0]; 
                     
+                    // 1. 年度总消耗柱状图
                     chartObjs.rt.setOption({
                         textStyle: { fontFamily: baseFont },
                         title: { text: `近${cTc}年总${targetRes.name}`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                         tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `${targetRes.name} (${targetRes.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        yAxis: { type: 'value', name: targetRes.unit, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                         series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: targetRes.values.map(v=>fmt(v)), itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
 
-                    chartObjs.rp.setOption({
+                    // 2. 组合单耗图（柱状+折线双轴）
+                    chartObjs.ru.setOption({
                         textStyle: { fontFamily: baseFont },
-                        title: { text: `单位产量${targetRes.name}`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
+                        title: { text: `年度${targetRes.name}单耗`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
                         tooltip: commonTooltip,
                         grid: commonGrid,
+                        legend: { bottom: 0, width: '100%', data: [`单位产品综合${targetRes.name}`, `万元产值综合${targetRes.name}`], textStyle: { fontFamily: baseFont } },
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `单位产量${targetRes.name}\n(${targetRes.unit}/${macro.value.totalProd.unit || '吨'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProdResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
-                    }, true);
-
-                    chartObjs.rv.setOption({
-                        textStyle: { fontFamily: baseFont },
-                        title: { text: `万元产值${targetRes.name}`, left: 'center', textStyle: { fontFamily: baseFont, fontSize: 16 } },
-                        tooltip: commonTooltip,
-                        grid: commonGrid,
-                        xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `单位产值${targetRes.name}\n(${targetRes.unit}/${macro.value.value.unit || '万元'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitValResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
+                        yAxis: [
+                            { type: 'value', name: `${targetRes.unit}/${macro.value.totalProd.unit || '吨'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                            { type: 'value', name: `${targetRes.unit}/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: -90, nameGap: 40, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
+                        ],
+                        series: [
+                            { name: `单位产品综合${targetRes.name}`, type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProdResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } },
+                            { name: `万元产值综合${targetRes.name}`, type: 'line', yAxisIndex: 1, data: unitValResources.value[0], itemStyle: { color: '#ed7d31' }, lineStyle: { width: 3 }, symbolSize: 8 }
+                        ]
                     }, true);
                 }
             };
