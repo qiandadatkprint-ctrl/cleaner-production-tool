@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>产值产量/能资源消耗数据工作台</title>
+    <title>产值产量/能资源消耗工作台</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -811,8 +811,10 @@
 
                 const baseFont = '"Times New Roman", SimSun, sans-serif';
                 
-                // 核心修复1：使用固定的像素边距 (left/right: 75) 而不是百分比，确保永远有空间放置旋转90度的单位，不被画布截断。
-                const commonGrid = { left: 75, right: 75, bottom: chartGridBottom.value + '%', top: '15%', containLabel: true };
+                // 【核心修正】：将边距(left, right)调为等于nameGap的值(40)。
+                // 原理：Echarts中 containLabel: true 包含了数字的宽度。
+                // 此时只需要给 grid 设置足以容纳 nameGap（纵轴文字到轴的距离）的像素大小，就能保证纵轴标题刚好不被切掉，同时把最大空间留给图表。
+                const commonGrid = { left: 40, right: 40, bottom: chartGridBottom.value + '%', top: '15%', containLabel: true };
                 const cTc = yearCountText.value;
                 const commonTooltip = { trigger: 'axis', confine: true, textStyle: { fontFamily: baseFont } };
 
@@ -837,8 +839,8 @@
                     grid: commonGrid,
                     legend: { data: prodToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    // 核心修复2：坐标轴动态绑定表格输入的单位，同时调小 nameGap 防止溢出
-                    yAxis: { type: 'value', name: `产量 (${macro.value.totalProd.unit || '吨'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    // 将 nameGap 也统一设置为 40
+                    yAxis: { type: 'value', name: `产量 (${macro.value.totalProd.unit || '吨'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: prodSeries
                 }, true);
 
@@ -868,8 +870,7 @@
                     grid: commonGrid,
                     legend: { data: valToRender.map(p => p.name), bottom: 0, width: '100%', textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    // 核心修复3：产值纵轴单位动态绑定，调小 gap
-                    yAxis: { type: 'value', name: `产值 (${macro.value.value.unit || '万元'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    yAxis: { type: 'value', name: `产值 (${macro.value.value.unit || '万元'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: valSeries
                 }, true);
                 
@@ -880,7 +881,7 @@
                     tooltip: commonTooltip,
                     grid: commonGrid,
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    yAxis: { type: 'value', name: '综合能耗 (吨标煤)', nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                    yAxis: { type: 'value', name: '综合能耗 (吨标煤)', nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                     series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: totalEnergyData.value, itemStyle: { color: '#4472c4', borderRadius: [2, 2, 0, 0] } }]
                 }, true);
 
@@ -891,10 +892,9 @@
                     grid: commonGrid,
                     legend: { bottom: 0, width: '100%', data: ['单位产品综合能耗', '万元产值综合能耗'], textStyle: { fontFamily: baseFont } },
                     xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                    // 核心修复4：左右双轴分别动态绑定各自的底层单位
                     yAxis: [
-                        { type: 'value', name: `吨标煤/${macro.value.totalProd.unit || '吨'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
-                        { type: 'value', name: `吨标煤/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: -90, nameGap: 45, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
+                        { type: 'value', name: `吨标煤/${macro.value.totalProd.unit || '吨'}`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        { type: 'value', name: `吨标煤/${macro.value.value.unit || '万元'}`, nameLocation: 'middle', nameRotate: -90, nameGap: 40, splitLine: { show: false }, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } }
                     ],
                     series: [
                         { name: '单位产品综合能耗', type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProductionEnergy.value, itemStyle: { color: '#4472c4' } },
@@ -912,7 +912,7 @@
                         tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `${targetRes.name} (${targetRes.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        yAxis: { type: 'value', name: `${targetRes.name} (${targetRes.unit})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                         series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: targetRes.values.map(v=>fmt(v)), itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
 
@@ -922,7 +922,7 @@
                         tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `单位产量${targetRes.name}\n(${targetRes.unit}/${macro.value.totalProd.unit || '吨'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        yAxis: { type: 'value', name: `单位产量${targetRes.name}\n(${targetRes.unit}/${macro.value.totalProd.unit || '吨'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                         series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitProdResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
 
@@ -932,7 +932,7 @@
                         tooltip: commonTooltip,
                         grid: commonGrid,
                         xAxis: { type: 'category', data: years.value, axisLabel: { fontFamily: baseFont } },
-                        yAxis: { type: 'value', name: `单位产值${targetRes.name}\n(${targetRes.unit}/${macro.value.value.unit || '万元'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 45, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
+                        yAxis: { type: 'value', name: `单位产值${targetRes.name}\n(${targetRes.unit}/${macro.value.value.unit || '万元'})`, nameLocation: 'middle', nameRotate: 90, nameGap: 40, axisLabel: { fontFamily: baseFont }, nameTextStyle: { fontFamily: baseFont } },
                         series: [{ type: 'bar', barMaxWidth: 50, barMinHeight: 3, data: unitValResources.value[0], itemStyle: { color: resColor, borderColor: '#555', borderWidth: 0.5 } }]
                     }, true);
                 }
